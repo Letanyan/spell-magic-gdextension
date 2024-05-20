@@ -1,7 +1,7 @@
 #ifndef GDTOKEN_H
 #define GDTOKEN_H
 
-#include <string>
+#include <godot_cpp/classes/ref_counted.hpp>
 #include <vector>
 
 namespace godot {
@@ -22,14 +22,18 @@ enum GDTokenKind {
 
 struct GDToken {
 public:
-    GDToken(GDTokenKind _kind, std::string _raw);
+    GDToken();
+    GDToken(GDTokenKind _kind, godot::String _raw);
     ~GDToken();
 
     GDTokenKind kind;
-    std::string raw;
+    godot::String raw;
 };
 
-std::vector<GDToken> tokenize(std::string expr);
+std::vector<GDToken> tokenize(godot::String expr);
+godot::String build_string_from_tokens(std::vector<GDToken> tokens);
+bool gd_operator_precedes(GDToken op1, GDToken op2);
+int gd_operator_precedence(GDToken op);
 
 }
 

@@ -1,5 +1,6 @@
 #include "expr.h"
-#include <iostream>
+#include "expr_optimizer.h"
+#include "token.h"
 #include <math.h>
 
 // #include <godot_cpp/core/class_db.hpp>
@@ -8,8 +9,13 @@ using namespace godot;
 
 void GDExpr::_bind_methods()
 {
+    ClassDB::bind_static_method("GDExpr", D_METHOD("bake", "expr", "map"), &GDExpr::bake);
+
+    ClassDB::bind_method(D_METHOD("build_in", "expr"), &GDExpr::build_in);
+
     ClassDB::bind_method(D_METHOD("build", "expression"), &GDExpr::build);
     ClassDB::bind_method(D_METHOD("compute", "variables"), &GDExpr::compute);
+    ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
 
     ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
     ClassDB::bind_method(D_METHOD("set_error", "error_message"), &GDExpr::set_error);
@@ -18,28 +24,36 @@ void GDExpr::_bind_methods()
 
 String GDExpr::get_error()
 {
-    return String(error.data());
+    return error;
 }
 
 void GDExpr::set_error(String err_message)
 {
-    error = std::string(err_message.utf8().get_data());
+    error = err_message;
 }
 
 GDExpr::GDExpr()
 {
-    // Initialize any variables here.
 }
 
 GDExpr::~GDExpr()
 {
-    // Add your cleanup here.
 }
 
-void GDExpr::build_base(std::string expr)
+GDExpr* GDExpr::build_in(godot::String expr)
+{
+    this->build(expr);
+    return this;
+}
+
+void GDExpr::build(godot::String expr)
 {
     auto tokens = godot::tokenize(expr);
+    build_from_tokens(tokens);
+}
 
+void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
+{
     error = "";
     expression = std::vector<GDToken>();
     auto operators = std::vector<GDToken>();
@@ -126,38 +140,9 @@ void GDExpr::build_base(std::string expr)
     }
 }
 
-void GDExpr::build(String expr)
+double GDExpr::compute(godot::Dictionary map)
 {
-    build_base(expr.utf8().get_data());
-}
-
-bool godot::gd_operator_precedes(GDToken op1, GDToken op2)
-{
-    if ("^" == op1.raw && ("*" == op2.raw || "/" == op2.raw)) {
-        return true;
-    }
-    if (("^" == op1.raw || "*" == op1.raw || "/" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
-        return true;
-    }
-
-    if (("*" == op1.raw || "/" == op1.raw) && ("*" == op2.raw || "/" == op2.raw)) {
-        return true;
-    }
-    if (("+" == op1.raw || "-" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
-        return true;
-    }
-
-    return false;
-}
-
-double str_to_double(std::string str)
-{
-    return atof(str.data());
-}
-
-double GDExpr::compute_base(std::function<double(char*, double)> map)
-{
-    auto tape = std::vector<double>(8);
+    auto tape = std::vector<float>(8);
     long long tape_index = 0;
     for (auto& e : expression) {
         if (e.kind == tkERROR) {
@@ -167,13 +152,14 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
 
         if (e.kind == tkNUMBER) {
             if (tape_index == tape.size()) {
-                tape.push_back(str_to_double(e.raw));
+                tape.push_back(e.raw.to_float());
             } else {
-                tape[tape_index] = str_to_double(e.raw);
+                tape[tape_index] = e.raw.to_float();
             }
             tape_index += 1;
         } else if (e.kind == tkVAR) {
-            double value = map(e.raw.data(), 0.0);
+            float value = map.get(e.raw, 0.0);
+            // double value = map(e.raw.data(), 0.0);
             if (tape_index == tape.size()) {
                 tape.push_back(value);
             } else {
@@ -201,9 +187,16 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             } else if (e.raw == "*") {
                 value = a * b;
             } else if (e.raw == "/") {
-                value = a / b;
+                if (b == 0.0) {
+                    value = 0.0;
+                } else {
+                    value = a / b;
+                }
             } else if (e.raw == "^") {
                 value = pow(a, b);
+            }
+            if (std::isnan(value)) {
+                value = 0.0;
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
@@ -222,6 +215,9 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             if (e.raw == "-") {
                 value = -a;
             }
+            if (std::isnan(value)) {
+                value = 0.0;
+            }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
             } else {
@@ -231,7 +227,7 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
         } else if (e.kind == tkFUNC) {
             tape_index -= 1;
             if (tape_index < 0) {
-                error = "Incomplete Expression";
+                error = e.raw + " requires at least 1 parameter";
                 return 0.0;
             }
             auto a = tape[tape_index];
@@ -265,7 +261,7 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             } else if (e.raw == "mod") {
                 tape_index -= 1;
                 if (tape_index < 0) {
-                    error = "Incomplete Expression";
+                    error = "mod requires 2 parameters";
                     return 0.0;
                 }
                 auto b = tape[tape_index];
@@ -273,7 +269,7 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             } else if (e.raw == "div") {
                 tape_index -= 1;
                 if (tape_index < 0) {
-                    error = "Incomplete Expression";
+                    error = "div requires 2 parameters";
                     return 0.0;
                 }
                 auto b = tape[tape_index];
@@ -287,7 +283,7 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             } else if (e.raw == "max") {
                 tape_index -= 1;
                 if (tape_index < 0) {
-                    error = "Incomplete Expression";
+                    error = "max requires 2 parameters";
                     return 0.0;
                 }
                 auto b = tape[tape_index];
@@ -295,7 +291,7 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
             } else if (e.raw == "min") {
                 tape_index -= 1;
                 if (tape_index < 0) {
-                    error = "Incomplete Expression";
+                    error = "min requires 2 parameters";
                     return 0.0;
                 }
                 auto b = tape[tape_index];
@@ -312,6 +308,37 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
                 value = a == 0 ? 1 : 0;
             } else if (e.raw == "neq") {
                 value = a != 0 ? 1 : 0;
+            } else if (e.raw == "pow") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "pow requires 2 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                value = pow(a, b);
+            } else if (e.raw == "log10") {
+                value = log10f(a);
+            } else if (e.raw == "logN") {
+                value = log(a);
+            } else if (e.raw == "abs") {
+                value = abs(a);
+            } else if (e.raw == "lerp") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "lerp requires 3 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "lerp requires 3 parameters";
+                    return 0.0;
+                }
+                auto c = tape[tape_index];
+                value = a + c * (b - a);
+            }
+            if (std::isnan(value)) {
+                value = 0.0;
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
@@ -334,10 +361,70 @@ double GDExpr::compute_base(std::function<double(char*, double)> map)
     return tape[tape_index];
 }
 
-double GDExpr::compute(Dictionary variables)
+bool GDExpr::contains_variable(godot::String var_name)
 {
-    std::function<double(char*, double)> my_map = [variables](char* str, double def) -> double {
-        return variables.get(String(str), def);
-    };
-    return compute_base(my_map);
+    for (auto& e : expression) {
+        if (e.kind == tkVAR) {
+            if (e.raw == var_name) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool vector_contains_string(std::vector<godot::String>* vec, godot::String needle)
+{
+    for (auto& s : *vec) {
+        if (s == needle) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result, Dictionary map, std::vector<String>* chain)
+{
+    auto buffer = std::vector<GDToken>();
+    for (auto& e : tokens) {
+        if (e.kind == tkVAR) {
+            String sub_expr = map.get(e.raw, "");
+            if (sub_expr.length() > 0) {
+                auto sub_tokens = godot::tokenize(sub_expr);
+                if (vector_contains_string(chain, e.raw)) {
+                    result->push_back(GDToken(tkNUMBER, "0"));
+                } else {
+                    chain->push_back(e.raw);
+                    bake_into_vector(sub_tokens, &buffer, map, chain);
+                    chain->pop_back();
+                }
+            } else {
+                buffer.push_back(e);
+            }
+        } else {
+            buffer.push_back(e);
+        }
+    }
+    bool wrap = chain->size() > 1 && (buffer.size() > 1 && !((buffer[0].kind == tkFUNC || buffer[0].kind == tkOPEN) && buffer.back().kind == tkCLOSE));
+    if (wrap) {
+        result->push_back(GDToken(tkOPEN, "("));
+        for (auto& e : buffer) {
+            result->push_back(e);
+        }
+        result->push_back(GDToken(tkCLOSE, ")"));
+    } else {
+        for (auto& e : buffer) {
+            result->push_back(e);
+        }
+    }
+}
+
+String GDExpr::bake(String expr, Dictionary map)
+{
+    auto tokens = godot::tokenize(expr);
+    auto output = std::vector<GDToken>();
+    auto chain = std::vector<String>();
+    bake_into_vector(tokens, &output, map, &chain);
+    return godot::optimize(output);
+    // return godot::build_string_from_tokens(output);
 }

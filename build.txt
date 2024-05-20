@@ -1,0 +1,5 @@
+1. upgrade git branch to main
+
+2. run `scons platform=windows target=template_release` and `scons platform=windows`
+
+3. copy libs from path defined in the `SConstruct` file to the main project bin

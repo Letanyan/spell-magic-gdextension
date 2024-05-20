@@ -1,10 +1,17 @@
 #include "token.h"
 
+#include <godot_cpp/classes/ref_counted.hpp>
 #include <vector>
 
 using namespace godot;
 
-GDToken::GDToken(GDTokenKind _kind, std::string _raw)
+GDToken::GDToken()
+{
+    kind = tkNONE;
+    raw = "";
+}
+
+GDToken::GDToken(GDTokenKind _kind, godot::String _raw)
 {
     // Initialize any variables here.
     kind = _kind;
@@ -16,7 +23,7 @@ GDToken::~GDToken()
     // Add your cleanup here.
 }
 
-bool is_func(std::string name)
+bool is_func(godot::String name)
 {
     if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan") {
         return true;
@@ -30,40 +37,47 @@ bool is_func(std::string name)
     if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
         return true;
     }
+    if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs") {
+        return true;
+    }
     return false;
 }
 
-std::vector<GDToken> godot::tokenize(std::string expr)
+std::vector<GDToken> godot::tokenize(godot::String expr)
 {
     GDTokenKind state = tkNONE;
     auto result = std::vector<GDToken>();
 
-    std::string current = "";
+    godot::String current = "";
     bool last_was_op = true;
-    std::string digits = "1234567890";
-    std::string alpha_num = "qwertyuiopasdfghjklzxcvbnm1234567890QWERTYUIOPASDFGHJKLZXCVBNM";
-    std::string alpha = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
-    std::string operators = "+-/*^";
-    for (char& c : expr) {
+    godot::String digits = "1234567890";
+    godot::String alpha_num = "qwertyuiopasdfghjklzxcvbnm1234567890QWERTYUIOPASDFGHJKLZXCVBNM";
+    godot::String alpha = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
+    godot::String operators = "+-/*^";
+    // for (char& c : expr) {
+    for (int i = 0; i < expr.length(); i++) {
+        char32_t c = expr[i];
+        godot::String sc = "";
+        sc += c;
         switch (state) {
         case tkNUMBER:
-            if (digits.find(c) != std::string::npos || c == '.') {
-                current.push_back(c);
+            if (digits.contains(sc) || c == '.') {
+                current += (c);
             } else {
-                result.push_back(GDToken(tkNUMBER, std::string(current)));
+                result.push_back(GDToken(tkNUMBER, godot::String(current)));
                 last_was_op = false;
-                current.clear();
+                current = "";
                 state = tkNONE;
             }
             break;
         case tkWORD:
-            if (alpha_num.find(c) != std::string::npos) {
-                current.push_back(c);
+            if (alpha_num.contains(sc)) {
+                current += c;
             } else {
                 GDTokenKind k = is_func(current) ? tkFUNC : tkVAR;
-                result.push_back(GDToken(k, std::string(current)));
+                result.push_back(GDToken(k, current));
                 last_was_op = false;
-                current.clear();
+                current = "";
                 state = tkNONE;
             }
         default:
@@ -72,42 +86,42 @@ std::vector<GDToken> godot::tokenize(std::string expr)
 
         switch (state) {
         case tkNONE:
-            if (digits.find(c) != std::string::npos) {
+            if (digits.contains(sc)) {
                 state = tkNUMBER;
-                current.push_back(c);
-            } else if (alpha.find(c) != std::string::npos) {
+                current += c;
+            } else if (alpha.contains(sc)) {
                 state = tkWORD;
-                current.push_back(c);
-            } else if (operators.find(c) != std::string::npos) {
-                current.push_back(c);
+                current += c;
+            } else if (operators.contains(sc)) {
+                current += c;
                 if (last_was_op && (c == '+' || c == '-')) {
-                    result.push_back(GDToken(tkPREFIX_OP, std::string(current)));
+                    result.push_back(GDToken(tkPREFIX_OP, godot::String(current)));
                 } else {
-                    result.push_back(GDToken(tkOP, std::string(current)));
+                    result.push_back(GDToken(tkOP, godot::String(current)));
                     last_was_op = true;
                 }
-                current.clear();
+                current = "";
             } else if (c == '(') {
-                current.push_back(c);
-                result.push_back(GDToken(tkOPEN, std::string(current)));
-                current.clear();
+                current += c;
+                result.push_back(GDToken(tkOPEN, godot::String(current)));
+                current = "";
                 last_was_op = true;
             } else if (c == ')') {
-                current.push_back(c);
-                result.push_back(GDToken(tkCLOSE, std::string(current)));
-                current.clear();
+                current += c;
+                result.push_back(GDToken(tkCLOSE, godot::String(current)));
+                current = "";
                 last_was_op = false;
             } else if (c == ',') {
-                current.push_back(c);
-                result.push_back(GDToken(tkCOMMA, std::string(current)));
-                current.clear();
+                current += c;
+                result.push_back(GDToken(tkCOMMA, godot::String(current)));
+                current = "";
                 last_was_op = true;
             } else if (c == ' ') {
 
             } else {
-                current.push_back(c);
-                result.push_back(GDToken(tkERROR, std::string(current)));
-                current.clear();
+                current += c;
+                result.push_back(GDToken(tkERROR, godot::String(current)));
+                current = "";
                 last_was_op = false;
             }
         default:
@@ -115,14 +129,14 @@ std::vector<GDToken> godot::tokenize(std::string expr)
         }
     }
 
-    if (current.size() > 0) {
+    if (current.length() > 0) {
         switch (state) {
         case tkNUMBER:
-            result.push_back(GDToken(tkNUMBER, std::string(current)));
+            result.push_back(GDToken(tkNUMBER, godot::String(current)));
             break;
         case tkWORD: {
             GDTokenKind k = is_func(current) ? tkFUNC : tkVAR;
-            result.push_back(GDToken(k, std::string(current)));
+            result.push_back(GDToken(k, godot::String(current)));
         } break;
         default:
             break;
@@ -130,4 +144,61 @@ std::vector<GDToken> godot::tokenize(std::string expr)
     }
 
     return result;
+}
+
+String godot::build_string_from_tokens(std::vector<GDToken> tokens)
+{
+    String result = "";
+    for (auto& t : tokens) {
+        switch (t.kind) {
+        case tkNUMBER:
+        case tkVAR:
+        case tkFUNC:
+        case tkOP:
+        case tkWORD:
+        case tkOPEN:
+        case tkCLOSE:
+        case tkPREFIX_OP:
+        case tkCOMMA: {
+            result += t.raw;
+        } break;
+        }
+    }
+    return result;
+}
+
+bool godot::gd_operator_precedes(GDToken op1, GDToken op2)
+{
+    if ("^" == op1.raw && ("*" == op2.raw || "/" == op2.raw)) {
+        return true;
+    }
+    if (("^" == op1.raw || "*" == op1.raw || "/" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
+        return true;
+    }
+
+    if (("*" == op1.raw || "/" == op1.raw) && ("*" == op2.raw || "/" == op2.raw)) {
+        return true;
+    }
+    if (("+" == op1.raw || "-" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
+        return true;
+    }
+
+    return false;
+}
+
+int godot::gd_operator_precedence(GDToken op)
+{
+    if (op.raw == "#") {
+        return 1000;
+    }
+    if (op.raw == "^") {
+        return 100;
+    }
+    if (op.raw == "*" || op.raw == "/") {
+        return 90;
+    }
+    if (op.raw == "+" || op.raw == "-") {
+        return 80;
+    }
+    return 0;
 }

@@ -64,6 +64,41 @@ String GDExprTree::display(String header, String padding)
     return result;
 }
 
+String format_as_expression_helper(GDExprTree* tree)
+{
+    String result = "";
+    if (tree->data.kind == tkOP) {
+        if (tree->data.raw == "#") {
+            if (tree->left != nullptr) {
+                result += format_as_expression_helper(tree->left) + "(";
+            }
+            if (tree->right != nullptr) {
+                result += format_as_expression_helper(tree->right) + ")";
+            }
+        } else if (tree->data.raw == "(") {
+            if (tree->right != nullptr) {
+                result += "(" + format_as_expression_helper(tree->right) + ")";
+            }
+        } else {
+            if (tree->left != nullptr) {
+                result += format_as_expression_helper(tree->left);
+            }
+            result += tree->data.raw;
+            if (tree->right != nullptr) {
+                result += format_as_expression_helper(tree->right);
+            }
+        }
+    } else {
+        result += tree->data.raw;
+    }
+    return result;
+}
+
+String GDExprTree::format_as_expression()
+{
+    return format_as_expression_helper(this);
+}
+
 GDExprTree* build_right_tree(std::vector<GDToken> tokens, int& cursor)
 {
     GDExprTree* left = new GDExprTree(tokens[cursor++]);
@@ -108,6 +143,7 @@ GDExprTree* godot::parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens
     if (next.kind == tkOPEN) {
         result = parse_expr_tree(tokens, cursor, 0);
         GDToken close_paren_token = tokens[cursor++];
+        result = new GDExprTree(GDToken(tkOP, "("), new GDExprTree(GDToken(tkNONE, "")), result);
     } else if (next.kind == tkFUNC) {
         GDToken open_paren_token = tokens[cursor++];
         result = parse_expr_tree(tokens, cursor, 0);
@@ -146,18 +182,116 @@ GDExprTree* godot::parse_expr_tree(std::vector<GDToken> tokens, int& cursor, int
     return left_node;
 }
 
+GDExprTree* expr_tree_constant_folding(GDExprTree* tree)
+{
+    if (tree->left != nullptr && tree->right != nullptr) {
+        if (tree->data.kind == tkOP) {
+            if (tree->left->data.kind == tkNUMBER && tree->right->data.kind == tkNUMBER) {
+                float number = 0.0;
+                String op = tree->data.raw;
+                if (op == "+") {
+                    number = tree->left->data.raw.to_float() + tree->right->data.raw.to_float();
+                } else if (op == "-") {
+                    number = tree->left->data.raw.to_float() - tree->right->data.raw.to_float();
+                } else if (op == "*") {
+                    number = tree->left->data.raw.to_float() * tree->right->data.raw.to_float();
+                } else if (op == "/") {
+                    number = tree->left->data.raw.to_float() / tree->right->data.raw.to_float();
+                } else if (op == "^") {
+                    number = powf(tree->left->data.raw.to_float(), tree->right->data.raw.to_float());
+                }
+                auto dict = Dictionary();
+                dict["number"] = number;
+                tree->data = GDToken(tkNUMBER, String("{number}").format(dict));
+                delete tree->left;
+                delete tree->right;
+                tree->left = NULL;
+                tree->right = NULL;
+            } else if (tree->left->data.kind == tkNUMBER) {
+                bool modified = false;
+                if ((tree->data.raw == "*" || tree->data.raw == "/" || tree->data.raw == "^") && tree->left->data.raw.to_float() == 0.0) {
+                    tree->data = GDToken(tkNUMBER, "0");
+                    delete tree->left;
+                    delete tree->right;
+                    tree->left = NULL;
+                    tree->right = NULL;
+                    modified = true;
+                } else if ((tree->data.raw == "+") && tree->left->data.raw.to_float() == 0.0) {
+                    tree = tree->right;
+                    delete tree->left;
+                    tree->left = NULL;
+                    modified = true;
+                } else if ((tree->data.raw == "*") && tree->left->data.raw.to_float() == 1.0) {
+                    tree = tree->right;
+                    delete tree->left;
+                    tree->left = NULL;
+                    modified = true;
+                }
+                auto new_right = expr_tree_constant_folding(tree->right);
+                if (modified || tree->right != new_right) {
+                    tree->right = new_right;
+                    tree = expr_tree_constant_folding(tree);
+                } else {
+                    tree->right = new_right;
+                }
+            } else if (tree->right->data.kind == tkNUMBER) {
+                bool modified = false;
+                if ((tree->data.raw == "*" || tree->data.raw == "/") && tree->right->data.raw.to_float() == 0.0) {
+                    tree->data = GDToken(tkNUMBER, "0");
+                    delete tree->left;
+                    delete tree->right;
+                    tree->left = NULL;
+                    tree->right = NULL;
+                    modified = true;
+                } else if ((tree->data.raw == "+") && tree->right->data.raw.to_float() == 0.0) {
+                    tree = tree->left;
+                    delete tree->right;
+                    tree->right = NULL;
+                    modified = true;
+                } else if ((tree->data.raw == "*") && tree->right->data.raw.to_float() == 1.0) {
+                    tree = tree->right;
+                    delete tree->right;
+                    tree->right = NULL;
+                    modified = true;
+                } else if ((tree->data.raw == "^") && tree->right->data.raw.to_float() == 1.0) {
+                    tree->data = GDToken(tkNUMBER, "1");
+                    delete tree->left;
+                    delete tree->right;
+                    tree->left = NULL;
+                    tree->right = NULL;
+                    modified = true;
+                }
+                auto new_left = expr_tree_constant_folding(tree->left);
+                if (modified || tree->left != new_left) {
+                    tree->left = new_left;
+                    tree = expr_tree_constant_folding(tree);
+                } else {
+                    tree->left = new_left;
+                }
+            } else {
+                auto new_right = expr_tree_constant_folding(tree->right);
+                auto new_left = expr_tree_constant_folding(tree->left);
+                if (new_right != tree->right || new_left != tree->left) {
+                    tree->left = new_left;
+                    tree->right = new_right;
+                    tree = expr_tree_constant_folding(tree);
+                } else {
+                    tree->left = new_left;
+                    tree->right = new_right;
+                }
+            }
+        }
+    }
+    return tree;
+}
+
 String godot::optimize(std::vector<GDToken> tokens)
 {
     int cursor = 0;
     auto tree = parse_expr_tree(tokens, cursor, 0);
-    // UtilityFunctions::print("root: ", tree->data.raw);
-    // if (tree->left != nullptr) {
-    //     UtilityFunctions::print("left: ", tree->left->data.raw);
-    // }
-    // if (tree->right != nullptr) {
-    //     UtilityFunctions::print("right: ", tree->right->data.raw);
-    // }
-    String result = tree->display();
+    tree = expr_tree_constant_folding(tree);
+    // String result = tree->display();
+    String result = tree->format_as_expression();
     delete tree;
     return result;
 }

@@ -13,14 +13,12 @@ GDToken::GDToken()
 
 GDToken::GDToken(GDTokenKind _kind, godot::String _raw)
 {
-    // Initialize any variables here.
     kind = _kind;
     raw = _raw;
 }
 
 GDToken::~GDToken()
 {
-    // Add your cleanup here.
 }
 
 bool is_func(godot::String name)

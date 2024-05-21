@@ -26,7 +26,7 @@ if env["platform"] == "macos":
     )
 else:
     library = env.SharedLibrary(
-        "./demo/bin/libgdexample{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+        "./bin/libgdexample{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
         source=sources,
     )
 

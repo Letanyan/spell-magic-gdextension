@@ -17,6 +17,7 @@ public:
     GDExprTree(GDToken data, GDExprTree* left, GDExprTree* right);
 
     String display(String header = "", String padding = "");
+    String format_as_expression();
 
     GDToken data;
     GDExprTree* left;

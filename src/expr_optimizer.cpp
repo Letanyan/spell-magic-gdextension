@@ -67,7 +67,7 @@ String GDExprTree::display(String header, String padding)
 String format_as_expression_helper(GDExprTree* tree)
 {
     String result = "";
-    if (tree->data.kind == tkOP) {
+    if (tree->data.kind == tkOP || tree->data.kind == tkCOMMA) {
         if (tree->data.raw == "#") {
             if (tree->left != nullptr) {
                 result += format_as_expression_helper(tree->left) + "(";
@@ -86,6 +86,16 @@ String format_as_expression_helper(GDExprTree* tree)
             result += tree->data.raw;
             if (tree->right != nullptr) {
                 result += format_as_expression_helper(tree->right);
+            }
+        }
+    } else if (tree->data.kind == tkPREFIX_OP) {
+        if (tree->right != nullptr) {
+            auto kind = tree->right->data.kind;
+            auto raw = tree->right->data.raw;
+            if (kind == tkNUMBER || kind == tkFUNC || kind == tkVAR || kind == tkOPEN || (kind == tkOP && raw == "#")) {
+                result += tree->data.raw + format_as_expression_helper(tree->right);
+            } else {
+                result += tree->data.raw + "(" + format_as_expression_helper(tree->right) + ")";
             }
         }
     } else {
@@ -150,8 +160,8 @@ GDExprTree* godot::parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens
         GDToken close_paren_token = tokens[cursor++];
         result = new GDExprTree(GDToken(tkOP, "#"), new GDExprTree(next), result);
     } else if (next.kind == tkPREFIX_OP) {
-        result = parse_expr_tree(tokens, cursor, 0);
-        result = new GDExprTree(GDToken(tkOP, "*"), new GDExprTree(GDToken(tkNUMBER, "-1")), result);
+        result = parse_expr_tree(tokens, cursor, gd_operator_precedence(next));
+        result = new GDExprTree(next, new GDExprTree(GDToken(tkNONE, "")), result);
     } else {
         result = new GDExprTree(next);
     }

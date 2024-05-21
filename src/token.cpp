@@ -186,6 +186,10 @@ bool godot::gd_operator_precedes(GDToken op1, GDToken op2)
 
 int godot::gd_operator_precedence(GDToken op)
 {
+
+    if (op.kind == tkPREFIX_OP) {
+        return 999;
+    }
     if (op.raw == "#") {
         return 1000;
     }
@@ -198,5 +202,9 @@ int godot::gd_operator_precedence(GDToken op)
     if (op.raw == "+" || op.raw == "-") {
         return 80;
     }
+    if (op.raw == ",") {
+        return 1;
+    }
+
     return 0;
 }

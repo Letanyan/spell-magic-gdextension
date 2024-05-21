@@ -274,10 +274,12 @@ float GDNavigator::get_world_height_from_node(CollisionObject3D* p, float x, flo
     query->set_collision_mask(1);
     auto result = space_state->intersect_ray(query);
     if (result.is_empty()) {
-        no_hit->set_data(true);
+        if (no_hit != nullptr)
+            no_hit->set_data(true);
         return 0;
     } else {
-        no_hit->set_data(false);
+        if (no_hit != nullptr)
+            no_hit->set_data(false);
         return ((Vector3)result.get("position", Vector3())).y;
     }
 }
@@ -290,10 +292,12 @@ float GDNavigator::get_world_height(PhysicsDirectSpaceState3D* space_state, floa
     query->set_collision_mask(1);
     auto result = space_state->intersect_ray(query);
     if (result.is_empty()) {
-        no_hit->set_data(true);
+        if (no_hit != nullptr)
+            no_hit->set_data(true);
         return 0;
     } else {
-        no_hit->set_data(false);
+        if (no_hit != nullptr)
+            no_hit->set_data(false);
         return ((Vector3)result.get("position", Vector3())).y;
     }
 }
@@ -306,10 +310,12 @@ Dictionary GDNavigator::get_world_normal_height(PhysicsDirectSpaceState3D* space
     query->set_collision_mask(1);
     auto result = space_state->intersect_ray(query);
     if (result.is_empty()) {
-        no_hit->set_data(true);
+        if (no_hit != nullptr)
+            no_hit->set_data(true);
         return Dictionary();
     } else {
-        no_hit->set_data(false);
+        if (no_hit != nullptr)
+            no_hit->set_data(false);
         return result;
     }
 }

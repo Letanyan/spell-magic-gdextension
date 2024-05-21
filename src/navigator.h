@@ -47,10 +47,12 @@ public:
     Vector3 minimum_score(Dictionary nodes, Dictionary scores);
     PackedVector3Array reconstruct_path(Dictionary came_from, Vector3 target);
     PackedVector3Array neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, uint64_t options);
+    PackedColorArray all_neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, uint64_t options);
     PackedVector3Array astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
     bool will_collide(CollisionObject3D* p, Shape3D* shape, Vector3 target, bool exclude_ground);
     PackedVector3Array find_target_path(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
     Vector3 find_target(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
+    Vector3 nearest_non_colliding_position(CollisionObject3D* p, Vector3 from, Vector3 target, Shape3D* shape, uint64_t options);
 };
 
 }

@@ -26,7 +26,7 @@ if env["platform"] == "macos":
     )
 else:
     library = env.SharedLibrary(
-        "./bin/libgdexample{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+        "../Spell Magic/bin/libgdexample{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
         source=sources,
     )
 

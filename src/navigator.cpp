@@ -340,7 +340,7 @@ PackedVector3Array GDNavigator::reconstruct_path(Dictionary came_from, Vector3 t
     return result;
 }
 
-PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, int options)
+PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, uint64_t options)
 {
     auto result = PackedVector3Array();
     auto direction = target - from;
@@ -353,23 +353,23 @@ PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, i
             to.y = get_world_height_from_node(p, to.x, to.z) + shape_height(shape) / 2.0 + 0.05;
         }
         to.snap(Vector3(distance, distance, distance));
-        auto distance_away = get_shape_distance_away(p, from, to, shape, options & MovementOptions::UNDERGROUND != 0);
+        auto distance_away = get_shape_distance_away(p, from, to, shape, (options & MovementOptions::UNDERGROUND) != 0);
         if (distance_away[0] == 1.0 && distance_away[1] == 1.0) {
             result.append(to);
-        } else if (distance_away[0] >= 0.1 && !get_shape_collides(p, from, to, shape, options & MovementOptions::UNDERGROUND != 0)) {
+        } else if (distance_away[0] >= 0.1 && !get_shape_collides(p, from, to, shape, (options & MovementOptions::UNDERGROUND) != 0)) {
             result.append(from.lerp(to, distance_away[0]));
         }
         direction.rotate(Vector3(0, 1, 0), angle);
     }
 
     auto final_result = PackedVector3Array();
-    if (options & MovementOptions::CAN_FLY != 0) {
+    if ((options & MovementOptions::CAN_FLY) != 0) {
         for (int i = 0; i < result.size(); i++) {
             auto r = (Vector3)result[i];
             final_result.append(r + Vector3(0, distance, 0));
         }
     }
-    if (options & MovementOptions::UNDERGROUND != 0) {
+    if ((options & MovementOptions::UNDERGROUND) != 0) {
         for (int i = 0; i < result.size(); i++) {
             auto r = (Vector3)result[i];
             final_result.append(r + Vector3(0, -distance, 0));
@@ -382,7 +382,9 @@ PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, i
     return final_result;
 }
 
-PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs)
+#define DEBUG false
+
+PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs)
 {
     auto start = p->get_global_position();
     auto open = Dictionary();
@@ -406,6 +408,8 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
             closest_point = current;
         }
         if (current_distance <= distance) {
+            if (DEBUG)
+                UtilityFunctions::print("astar: A");
             return reconstruct_path(came_from, current);
         }
 
@@ -426,10 +430,14 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
 
         max_look_up -= 1;
         if (max_look_up <= 0) {
+            if (DEBUG)
+                UtilityFunctions::print("astar: B");
             return reconstruct_path(came_from, closest_point);
         }
     }
 
+    if (DEBUG)
+        UtilityFunctions::print("astar: C");
     auto result = PackedVector3Array();
     result.append(target);
     return result;
@@ -437,30 +445,40 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
 
 bool GDNavigator::will_collide(CollisionObject3D* p, Shape3D* shape, Vector3 target, bool exclude_ground)
 {
+    if (DEBUG)
+        UtilityFunctions::print("will_collide: ", target, exclude_ground);
     return get_shape_collides(p, p->get_global_position(), target, shape, exclude_ground);
 }
 
-PackedVector3Array GDNavigator::find_target_path(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs)
+PackedVector3Array GDNavigator::find_target_path(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs)
 {
     auto new_shape = shape_increase(shape, margin_from_obs);
     auto result = PackedVector3Array();
     result.append(target);
     if (p->get_global_position().distance_to(target) > 100.0) {
+        if (DEBUG)
+            UtilityFunctions::print("find_target_path: A");
         return result;
     }
-    if (!will_collide(p, new_shape, target, options & MovementOptions::UNDERGROUND != 0)) {
+    if (!will_collide(p, new_shape, target, (options & MovementOptions::UNDERGROUND) != 0)) {
+        if (DEBUG)
+            UtilityFunctions::print("find_target_path: B");
         return result;
     }
 
     auto path = astar(p, target, new_shape, options, search_radius, margin_from_obs);
     if (path.is_empty()) {
+        if (DEBUG)
+            UtilityFunctions::print("find_target_path: C");
         return result;
     }
 
+    if (DEBUG)
+        UtilityFunctions::print("find_target_path: D");
     return path;
 }
 
-Vector3 GDNavigator::find_target(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs)
+Vector3 GDNavigator::find_target(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs)
 {
     auto path = find_target_path(p, target, shape, options, search_radius, margin_from_obs);
     if (path.is_empty()) {

@@ -15,8 +15,8 @@
 
 namespace godot {
 
-enum MovementOptions { CAN_FLY = 1 << 1,
-    UNDERGROUND = 1 << 2 };
+enum MovementOptions { CAN_FLY = 1 << 0,
+    UNDERGROUND = 1 << 1 };
 
 class GDNavigator : public Object {
     GDCLASS(GDNavigator, Object)
@@ -46,11 +46,11 @@ public:
     Dictionary get_world_normal_height(PhysicsDirectSpaceState3D* space_state, float x, float z, GDInOut* no_hit = nullptr);
     Vector3 minimum_score(Dictionary nodes, Dictionary scores);
     PackedVector3Array reconstruct_path(Dictionary came_from, Vector3 target);
-    PackedVector3Array neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, int options);
-    PackedVector3Array astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs = 0.5);
+    PackedVector3Array neighbours(CollisionObject3D* p, Vector3 from, int directions, float distance, Vector3 target, Shape3D* shape, uint64_t options);
+    PackedVector3Array astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
     bool will_collide(CollisionObject3D* p, Shape3D* shape, Vector3 target, bool exclude_ground);
-    PackedVector3Array find_target_path(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs = 0.5);
-    Vector3 find_target(CollisionObject3D* p, Vector3 target, Shape3D* shape, int options, float search_radius, float margin_from_obs = 0.5);
+    PackedVector3Array find_target_path(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
+    Vector3 find_target(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs = 0.5);
 };
 
 }

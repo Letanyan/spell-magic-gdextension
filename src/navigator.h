@@ -55,6 +55,18 @@ public:
     Vector3 nearest_non_colliding_position(CollisionObject3D* p, Vector3 from, Vector3 target, Shape3D* shape, uint64_t options);
 };
 
+class GDProfiler {
+public:
+    double start_time;
+    double elapsed;
+    GDProfiler();
+    ~GDProfiler();
+
+    void start();
+    double lap();
+    double stop();
+};
+
 }
 
 #endif

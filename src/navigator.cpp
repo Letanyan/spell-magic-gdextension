@@ -2,6 +2,7 @@
 #include "inout.h"
 #include <iostream>
 #include <math.h>
+#include <queue>
 
 #include <godot_cpp/classes/box_shape3d.hpp>
 #include <godot_cpp/classes/capsule_shape3d.hpp>
@@ -14,8 +15,34 @@
 #include <godot_cpp\classes\physics_point_query_parameters3d.hpp>
 #include <godot_cpp\classes\physics_ray_query_parameters3d.hpp>
 #include <godot_cpp\classes\physics_shape_query_parameters3d.hpp>
+#include <godot_cpp\classes\time.hpp>
 
 using namespace godot;
+
+GDProfiler::GDProfiler()
+{
+    elapsed = 0.0;
+    start_time = Time::get_singleton()->get_unix_time_from_system();
+}
+GDProfiler::~GDProfiler() { }
+
+void GDProfiler::start()
+{
+    start_time = Time::get_singleton()->get_unix_time_from_system();
+}
+
+double GDProfiler::lap()
+{
+    elapsed += Time::get_singleton()->get_unix_time_from_system() - start_time;
+    start_time = Time::get_singleton()->get_unix_time_from_system();
+    return elapsed;
+}
+
+double GDProfiler::stop()
+{
+    elapsed = Time::get_singleton()->get_unix_time_from_system() - start_time;
+    return elapsed;
+}
 
 void GDNavigator::_bind_methods()
 {
@@ -326,8 +353,9 @@ Vector3 GDNavigator::minimum_score(Dictionary nodes, Dictionary scores)
     float best = INFINITY;
     for (int i = 0; i < nodes.size(); i++) {
         auto v = (Vector3)nodes.keys()[i];
-        if ((float)scores.get(v, INFINITY) < best) {
-            best = scores[v];
+        auto dist = (float)scores.get(v, INFINITY);
+        if (dist < best) {
+            best = dist;
             result = v;
         }
     }
@@ -393,8 +421,8 @@ PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, i
 PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shape3D* shape, uint64_t options, float search_radius, float margin_from_obs)
 {
     auto start = p->get_global_position();
-    auto open = Dictionary();
-    open[start] = true;
+    auto open_container = Dictionary();
+    open_container[start] = true;
     auto came_from = Dictionary();
     auto g_score = Dictionary();
     g_score[start] = 0.0;
@@ -403,10 +431,15 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
     auto distance = shape_max_bound(shape);
     auto max_look_up = search_radius / distance;
 
+    auto cmp = [&f_score](Vector3 lhs, Vector3 rhs) -> bool { return (float)f_score.get(lhs, INFINITY) > (float)f_score.get(rhs, INFINITY); };
+    std::priority_queue<Vector3, std::vector<Vector3>, decltype(cmp)> open(cmp);
+    open.push(start);
+
     auto best_distance = INFINITY;
     auto closest_point = start;
-    while (open.size() > 0) {
-        auto current = minimum_score(open, f_score);
+    while (open_container.size() > 0) {
+        // auto current = minimum_score(open_container, f_score);
+        auto current = open.top();
 
         auto current_distance = current.distance_to(target);
         if (current_distance < best_distance) {
@@ -419,7 +452,8 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
             return reconstruct_path(came_from, current);
         }
 
-        open.erase(current);
+        open.pop();
+        open_container.erase(current);
         auto new_points = neighbours(p, current, 8, distance, target, shape, options);
         for (int i = 0; i < new_points.size(); i++) {
             auto n = (Vector3)new_points[i];
@@ -428,8 +462,9 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
                 came_from[n] = current;
                 g_score[n] = tentative;
                 f_score[n] = tentative + n.distance_to(target);
-                if (!open.has(n)) {
-                    open[n] = true;
+                if (!open_container.has(n)) {
+                    open.push(n);
+                    open_container[n] = true;
                 }
             }
         }

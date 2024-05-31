@@ -335,7 +335,7 @@ double GDExpr::compute(godot::Dictionary map)
                     return 0.0;
                 }
                 auto c = tape[tape_index];
-                value = a + c * (b - a);
+                value = b + c * (a - b);
             }
             if (std::isnan(value)) {
                 value = 0.0;

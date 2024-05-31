@@ -49,8 +49,8 @@ std::vector<GDToken> godot::tokenize(godot::String expr)
     godot::String current = "";
     bool last_was_op = true;
     godot::String digits = "1234567890";
-    godot::String alpha_num = "qwertyuiopasdfghjklzxcvbnm1234567890QWERTYUIOPASDFGHJKLZXCVBNM";
-    godot::String alpha = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
+    godot::String alpha_num = "qwertyuiopasdfghjklzxcvbnm1234567890QWERTYUIOPASDFGHJKLZXCVBNM_";
+    godot::String alpha = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_";
     godot::String operators = "+-/*^";
     // for (char& c : expr) {
     for (int i = 0; i < expr.length(); i++) {

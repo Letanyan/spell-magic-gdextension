@@ -208,3 +208,12 @@ int godot::gd_operator_precedence(GDToken op)
 
     return 0;
 }
+
+bool godot::gd_operator_is_right_associative(GDToken op)
+{
+    if (op.raw == "^") {
+        return true;
+    }
+
+    return false;
+}

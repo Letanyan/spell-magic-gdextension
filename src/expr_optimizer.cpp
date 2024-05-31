@@ -171,6 +171,9 @@ GDExprTree* godot::parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens
 GDExprTree* godot::parse_binary_tree(GDToken op, GDExprTree* left, std::vector<GDToken> tokens, int& cursor)
 {
     auto prec = gd_operator_precedence(op);
+    if (gd_operator_is_right_associative(op)) {
+        prec -= 1;
+    }
     auto right = parse_expr_tree(tokens, cursor, prec);
     return new GDExprTree(op, left, right);
 }

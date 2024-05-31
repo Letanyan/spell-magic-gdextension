@@ -34,6 +34,7 @@ std::vector<GDToken> tokenize(godot::String expr);
 godot::String build_string_from_tokens(std::vector<GDToken> tokens);
 bool gd_operator_precedes(GDToken op1, GDToken op2);
 int gd_operator_precedence(GDToken op);
+bool gd_operator_is_right_associative(GDToken op);
 
 }
 

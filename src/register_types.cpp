@@ -4,6 +4,7 @@
 #include "inout.h"
 #include "navigator.h"
 #include "noise_blender.h"
+#include "terrain.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -22,6 +23,7 @@ void initialize_example_module(ModuleInitializationLevel p_level)
     ClassDB::register_class<GDNoiseBlender>();
     ClassDB::register_class<GDNavigator>();
     ClassDB::register_class<GDInOut>();
+    ClassDB::register_class<GDTerrain>();
 }
 
 void uninitialize_example_module(ModuleInitializationLevel p_level)

@@ -3,6 +3,7 @@
 
 #include <godot_cpp/classes/curve.hpp>
 #include <godot_cpp/classes/fast_noise_lite.hpp>
+#include <godot_cpp/classes/noise_texture2d.hpp>
 
 #include <functional>
 #include <string>
@@ -21,13 +22,13 @@ public:
     GDNoiseBlender();
     ~GDNoiseBlender();
 
-    std::vector<Variant> terrains;
-    std::vector<Variant> curves;
+    std::vector<FastNoiseLite*> terrains;
+    std::vector<Curve*> curves;
     std::vector<Vector2> locations;
     std::vector<Vector3> colors;
 
-    Variant dryness;
-    Variant temperature;
+    FastNoiseLite* dryness;
+    FastNoiseLite* temperature;
 
     int biome;
     Color color;
@@ -39,13 +40,19 @@ public:
     double get_total_distance();
     int get_biome();
 
-    void set_temperature(Variant _temperature);
-    void set_dryness(Variant _dryness);
+    void set_temperature(FastNoiseLite* _temperature);
+    void set_dryness(FastNoiseLite* _dryness);
 
-    void add_biome(Variant terrain, Variant curve, Vector2 location, Vector3 color);
+    void add_biome(FastNoiseLite* terrain, Curve* curve, Vector2 location, Vector3 color);
 
     void compute_biome_stats(double x, double y);
     double height(double x, double y);
+
+    NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);
+    NoiseTexture2D* dryness_texture(double x, double y, double w, double h, double scale);
+    NoiseTexture2D* temperature_texture(double x, double y, double w, double h, double scale);
+
+    double grass_height(int biome, double x, double y);
 };
 
 }

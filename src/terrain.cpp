@@ -213,10 +213,8 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
     }
 
     auto result = Dictionary();
-    UtilityFunctions::print(delta);
     result["removed"] = removed_locations;
     result["updated"] = updated_locations;
-    UtilityFunctions::print(result);
     return result;
 }
 
@@ -482,6 +480,7 @@ void GDTerrain::init_grass()
     auto i = 0;
     UtilityFunctions::seed(0);
     const int R = 4;
+    auto grass_store = TypedArray<Vector3>();
     for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
         for (int y = -grass_size; y < grass_size + 1; y += R) {
             auto x = _X + ((y / R) % 2 == 0 ? 1 : 0) * R + player_position.x;
@@ -498,7 +497,7 @@ void GDTerrain::init_grass()
                         continue;
                     }
                     auto p = Vector3(nx, 1000, ny) + Vector3(UtilityFunctions::randf() - 0.5, 0, UtilityFunctions::randf() - 0.5);
-                    grass_coords.append(p);
+                    grass_store.append(p);
                     i += 1;
                     if (r == 0) {
                         break;
@@ -507,6 +506,7 @@ void GDTerrain::init_grass()
             }
         }
     }
+    grass_coords.append_array(grass_store);
     mm->set_visible_instance_count(i);
 }
 

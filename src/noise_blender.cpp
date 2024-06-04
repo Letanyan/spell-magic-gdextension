@@ -6,13 +6,28 @@
 
 using namespace godot;
 
+MyNoise::MyNoise(const char* string, double freq, int seed)
+{
+    noise = FastNoise::NewFromEncodedNodeTree(string);
+    frequency = freq;
+    this->seed = seed;
+}
+
+MyNoise::MyNoise()
+{
+}
+
+MyNoise::~MyNoise()
+{
+}
+
 void GDNoiseBlender::_bind_methods()
 {
     ClassDB::bind_method(D_METHOD("set_dryness", "dryness"), &GDNoiseBlender::set_dryness);
     ClassDB::bind_method(D_METHOD("set_temperature", "temperature"), &GDNoiseBlender::set_temperature);
     ClassDB::bind_method(D_METHOD("add_biome", "terrain", "curve", "location", "color"), &GDNoiseBlender::add_biome);
     ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
-    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y"), &GDNoiseBlender::compute_biome_stats);
+    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "logging"), &GDNoiseBlender::compute_biome_stats, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
     ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
     ClassDB::bind_method(D_METHOD("get_color"), &GDNoiseBlender::get_color);
@@ -31,11 +46,23 @@ GDNoiseBlender::GDNoiseBlender()
     locations = std::vector<Vector2>();
     colors = std::vector<Vector3>();
     distances = std::vector<double>();
+
+    fast_dryness = MyNoise("EwDNzMw9EwBvEoM6DwADAAAAAAAAQAgAAAAAAD8AAAAAAA==", 1.0, 0);
+    fast_temperature = MyNoise("EwDNzMw9EwBvEoM6DQAGAAAAAAAAQAgAAAAAAD8AAAAAAA==", 1.0, 32);
+
+    _terrains = std::vector<std::tuple<FastNoise::SmartNode<>, double, int>>();
+    add_noise_terrain("EQAFAAAAAAAAQBAAzcxMPQ0ABQAAAAAAEEEGAAAAAAAAAAAAgD8BCAAAzczMPQAAAAAA", 0.1, 0); // desert
 }
 
 GDNoiseBlender::~GDNoiseBlender()
 {
     // Add your cleanup here.
+}
+
+void GDNoiseBlender::add_noise_terrain(const char* string, float freq, int seed)
+{
+    auto n = FastNoise::NewFromEncodedNodeTree(string);
+    _terrains.push_back(std::tuple<FastNoise::SmartNode<>, double, int>(n, freq, seed));
 }
 
 Color GDNoiseBlender::get_color()
@@ -82,18 +109,38 @@ NoiseTexture2D* GDNoiseBlender::texture(FastNoiseLite* noise, double x, double y
     result->set_width(w + 2);
     result->set_height(h + 2);
     result->set_normalize(false);
-    // UtilityFunctions::print(res_noise->get_frequency(), " ", ((Ref<FastNoiseLite>)*result->get_noise())->get_frequency(), " ", noise, " ", res_noise);
     return result;
 }
 
-NoiseTexture2D* GDNoiseBlender::dryness_texture(double x, double y, double w, double h, double scale)
+ImageTexture* GDNoiseBlender::fast_texture(MyNoise noise, double x, double y, double w, double h, double scale)
 {
-    return texture(this->dryness, x, y, w, h, scale);
+    auto floats = std::vector<float>();
+    float X = x - w / 2.0;
+    float Y = y - h / 2.0;
+    float W = w + 2;
+    float H = h + 2;
+    floats.resize(W * H);
+    auto minmax = noise.noise->GenUniformGrid2D(floats.data(), X, Y, W, H, noise.frequency * scale, noise.seed);
+
+    auto bytes = PackedByteArray();
+    for (int i = 0; i < floats.size(); i++) {
+        bytes.append((uint8_t)((floats[i] * 0.5 + 0.5) * 255));
+    }
+
+    auto result = Image::create_from_data(W, H, false, Image::Format::FORMAT_L8, bytes);
+    auto res = new ImageTexture();
+    res->set_image(result);
+    return res;
 }
 
-NoiseTexture2D* GDNoiseBlender::temperature_texture(double x, double y, double w, double h, double scale)
+ImageTexture* GDNoiseBlender::dryness_texture(double x, double y, double w, double h, double scale)
 {
-    return texture(this->temperature, x, y, w, h, scale);
+    return fast_texture(this->fast_dryness, x, y, w, h, scale);
+}
+
+ImageTexture* GDNoiseBlender::temperature_texture(double x, double y, double w, double h, double scale)
+{
+    return fast_texture(this->fast_temperature, x, y, w, h, scale);
 }
 
 void GDNoiseBlender::add_biome(FastNoiseLite* terrain, Curve* curve, Vector2 location, Vector3 color)
@@ -105,10 +152,27 @@ void GDNoiseBlender::add_biome(FastNoiseLite* terrain, Curve* curve, Vector2 loc
     distances.push_back(0.0);
 }
 
-void GDNoiseBlender::compute_biome_stats(double x, double y)
+void GDNoiseBlender::compute_biome_stats(double x, double y, bool logging)
 {
-    auto d = ((FastNoiseLite*)(Object*)dryness)->get_noise_2d(x, y) / 2.0 + 0.5;
-    auto t = ((FastNoiseLite*)(Object*)temperature)->get_noise_2d(x, y) / 2.0 + 0.5;
+    double X = UtilityFunctions::snappedf(x, 0.0001);
+    double Y = UtilityFunctions::snappedf(y, 0.0001);
+    // auto d = ((FastNoiseLite*)(Object*)dryness)->get_noise_2d(x, y) / 2.0 + 0.5;
+    // auto t = ((FastNoiseLite*)(Object*)temperature)->get_noise_2d(x, y) / 2.0 + 0.5;
+    float vd[1] = {};
+    float vt[1] = {};
+
+    // fast_dryness.noise->GenUniformGrid2D(vd, X, Y, 1.0, 1.0, fast_dryness.frequency, fast_dryness.seed);
+    // fast_temperature.noise->GenUniformGrid2D(vt, X, Y, 1.0, 1.0, fast_temperature.frequency, fast_temperature.seed);
+    vd[0] = fast_dryness.noise->GenSingle2D(X, Y, fast_dryness.seed) * fast_dryness.frequency;
+    vt[0] = fast_temperature.noise->GenSingle2D(X, Y, fast_temperature.seed) * fast_temperature.frequency;
+
+    auto d = vd[0] / 2.0 + 0.5;
+    auto t = vt[0] / 2.0 + 0.5;
+
+    if (logging) {
+        UtilityFunctions::print(X, ":", Y, " = ", d);
+        UtilityFunctions::print(X, ":", Y, " = ", t);
+    }
 
     auto p = Vector2(d, t);
     auto min_distance = INFINITY;
@@ -137,17 +201,25 @@ void GDNoiseBlender::compute_biome_stats(double x, double y)
 double GDNoiseBlender::height(double x, double y)
 {
     double result = 0.0;
+    profile_compute.start();
     compute_biome_stats(x, y);
+    profile_compute.lap();
 
     double X = UtilityFunctions::snappedf(x, 0.0001);
     double Y = UtilityFunctions::snappedf(y, 0.0001);
 
+    profile_sum_distances.start();
     for (int i = 0; i < distances.size(); i++) {
+        profile_get_noise.start();
         double e = ((FastNoiseLite*)(Object*)terrains[i])->get_noise_2d(X, Y) / 2.0 + 0.5;
+        profile_get_noise.lap();
+        profile_curve_sample.start();
         e = ((Curve*)(Object*)curves[i])->sample(e);
+        profile_curve_sample.lap();
         double m = 1.0 - distances[i] / total_distance;
         result += e * m;
     }
+    profile_sum_distances.lap();
 
     return result;
 }

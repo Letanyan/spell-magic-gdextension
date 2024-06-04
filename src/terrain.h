@@ -27,13 +27,15 @@
 #define HAS_WATER true
 #endif
 #ifndef HAS_GRASS
-#define HAS_GRASS 1
+#define HAS_GRASS 0
 #endif
 
 namespace godot {
 
 class GDTerrain : public Object {
     GDCLASS(GDTerrain, Object)
+
+    bool first_run;
 
 private:
 protected:

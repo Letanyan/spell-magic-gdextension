@@ -1,5 +1,6 @@
 #include "terrain.h"
 #include "inout.h"
+#include "my_profiler.h"
 #include "navigator.h"
 #include "noise_blender.h"
 
@@ -40,6 +41,7 @@ void GDTerrain::_bind_methods()
 
 GDTerrain::GDTerrain()
 {
+    first_run = false;
 }
 
 GDTerrain::~GDTerrain()
@@ -220,14 +222,20 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
 
 Dictionary GDTerrain::update_chunks(double x, double y)
 {
+    auto prof = GDProfiler();
     auto high = update_chunks_with_size(loaded_chunks, lciMAIN, x, y, chunk_size, radius, subdivide_percent, false);
+    // UtilityFunctions::print("loaded time: ", prof.stop());
     auto removed = (PackedVector2Array)high.get("removed", PackedVector2Array());
     auto updated = (PackedVector2Array)high.get("updated", PackedVector2Array());
     if (HAS_MEDIUM) {
+        prof.reset();
         update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
+        // UtilityFunctions::print("medium time: ", prof.stop());
     }
     if (HAS_WATER) {
+        prof.reset();
         update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, radius * radius * 2, 16.0 / chunk_size, true);
+        // UtilityFunctions::print("water time: ", prof.stop());
     }
     set_player_coord_using_position(x, y, chunk_size);
     auto result = Dictionary();
@@ -331,17 +339,19 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         }
     }
 
-    auto rng = new RandomNumberGenerator();
-    rng->set_seed(UtilityFunctions::hash(UtilityFunctions::str(x) + ":" + UtilityFunctions::str(y)));
     auto A = Vector3();
     for (int i = 0; i < mdt->get_vertex_count(); i++) {
         A = mdt->get_vertex(i);
+        // if (!first_run) {
+        //     UtilityFunctions::print(A);
+        // }
         A.y = blender->height(A.x + x, A.z + y);
         mdt->set_vertex(i, A);
         if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0 && mi->has_node("static")) {
             max_height_position = Vector3(A.x + x, A.y, A.z + y);
         }
     }
+    first_run = true;
 
     if (r <= radius && mi->has_node("static")) {
         auto static_body = mi->get_node<StaticBody3D>("static");
@@ -480,7 +490,7 @@ void GDTerrain::init_grass()
     auto i = 0;
     UtilityFunctions::seed(0);
     const int R = 4;
-    auto grass_store = TypedArray<Vector3>();
+    auto grass_store = std::vector<Vector3>();
     for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
         for (int y = -grass_size; y < grass_size + 1; y += R) {
             auto x = _X + ((y / R) % 2 == 0 ? 1 : 0) * R + player_position.x;
@@ -497,7 +507,7 @@ void GDTerrain::init_grass()
                         continue;
                     }
                     auto p = Vector3(nx, 1000, ny) + Vector3(UtilityFunctions::randf() - 0.5, 0, UtilityFunctions::randf() - 0.5);
-                    grass_store.append(p);
+                    grass_store.push_back(p);
                     i += 1;
                     if (r == 0) {
                         break;
@@ -506,7 +516,9 @@ void GDTerrain::init_grass()
             }
         }
     }
-    grass_coords.append_array(grass_store);
+    for (auto& v : grass_store) {
+        grass_coords.append(v);
+    }
     mm->set_visible_instance_count(i);
 }
 

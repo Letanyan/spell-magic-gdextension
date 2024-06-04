@@ -15,34 +15,8 @@
 #include <godot_cpp\classes\physics_point_query_parameters3d.hpp>
 #include <godot_cpp\classes\physics_ray_query_parameters3d.hpp>
 #include <godot_cpp\classes\physics_shape_query_parameters3d.hpp>
-#include <godot_cpp\classes\time.hpp>
 
 using namespace godot;
-
-GDProfiler::GDProfiler()
-{
-    elapsed = 0.0;
-    start_time = Time::get_singleton()->get_unix_time_from_system();
-}
-GDProfiler::~GDProfiler() { }
-
-void GDProfiler::start()
-{
-    start_time = Time::get_singleton()->get_unix_time_from_system();
-}
-
-double GDProfiler::lap()
-{
-    elapsed += Time::get_singleton()->get_unix_time_from_system() - start_time;
-    start_time = Time::get_singleton()->get_unix_time_from_system();
-    return elapsed;
-}
-
-double GDProfiler::stop()
-{
-    elapsed = Time::get_singleton()->get_unix_time_from_system() - start_time;
-    return elapsed;
-}
 
 void GDNavigator::_bind_methods()
 {

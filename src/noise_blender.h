@@ -23,12 +23,14 @@ namespace godot {
 class MyNoise {
 public:
     FastNoise::SmartNode<> noise;
-    float frequency;
     int seed;
 
-    MyNoise(const char* string, double freq, int seed);
+    MyNoise(const char* string, int seed);
     MyNoise();
     ~MyNoise();
+
+    float noise2d(float x, float y);
+    void noise2d(float* data, float x, float y, float w, float h);
 };
 
 class GDNoiseBlender : public Object {
@@ -38,11 +40,10 @@ private:
 protected:
     static void _bind_methods();
 
-    void add_noise_terrain(const char* string, float freq, int seed);
     float get_noise_2d(float x, float y);
 
-    MyNoise fast_dryness;
-    MyNoise fast_temperature;
+    MyNoise dryness;
+    MyNoise temperature;
 
     ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);
 
@@ -55,14 +56,10 @@ public:
     GDNoiseBlender();
     ~GDNoiseBlender();
 
-    std::vector<FastNoiseLite*> terrains;
-    std::vector<std::tuple<FastNoise::SmartNode<FastNoise::Generator>, double, int>> _terrains;
+    std::vector<MyNoise> terrains;
     std::vector<Curve*> curves;
     std::vector<Vector2> locations;
     std::vector<Vector3> colors;
-
-    FastNoiseLite* dryness;
-    FastNoiseLite* temperature;
 
     int biome;
     Color color;
@@ -74,12 +71,12 @@ public:
     double get_total_distance();
     int get_biome();
 
-    void set_temperature(FastNoiseLite* _temperature);
-    void set_dryness(FastNoiseLite* _dryness);
+    void set_temperature(String encoded, int seed);
+    void set_dryness(String encoded, int seed);
 
-    void add_biome(FastNoiseLite* terrain, Curve* curve, Vector2 location, Vector3 color);
+    void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
 
-    void compute_biome_stats(double x, double y, bool logging = false);
+    void compute_biome_stats(double x, double y);
     double height(double x, double y);
 
     NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);

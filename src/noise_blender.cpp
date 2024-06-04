@@ -6,10 +6,9 @@
 
 using namespace godot;
 
-MyNoise::MyNoise(const char* string, double freq, int seed)
+MyNoise::MyNoise(const char* string, int seed)
 {
     noise = FastNoise::NewFromEncodedNodeTree(string);
-    frequency = freq;
     this->seed = seed;
 }
 
@@ -21,13 +20,23 @@ MyNoise::~MyNoise()
 {
 }
 
+float MyNoise::noise2d(float x, float y)
+{
+    return noise->GenSingle2D(x, y, seed);
+}
+
+void MyNoise::noise2d(float* data, float x, float y, float w, float h)
+{
+    noise->GenUniformGrid2D(data, x, y, w, h, 1.0, seed);
+}
+
 void GDNoiseBlender::_bind_methods()
 {
-    ClassDB::bind_method(D_METHOD("set_dryness", "dryness"), &GDNoiseBlender::set_dryness);
-    ClassDB::bind_method(D_METHOD("set_temperature", "temperature"), &GDNoiseBlender::set_temperature);
-    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "curve", "location", "color"), &GDNoiseBlender::add_biome);
+    ClassDB::bind_method(D_METHOD("set_dryness", "encoded", "seed"), &GDNoiseBlender::set_dryness);
+    ClassDB::bind_method(D_METHOD("set_temperature", "encoded", "seed"), &GDNoiseBlender::set_temperature);
+    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "location", "color"), &GDNoiseBlender::add_biome);
     ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
-    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "logging"), &GDNoiseBlender::compute_biome_stats, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y"), &GDNoiseBlender::compute_biome_stats);
     ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
     ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
     ClassDB::bind_method(D_METHOD("get_color"), &GDNoiseBlender::get_color);
@@ -41,28 +50,16 @@ void GDNoiseBlender::_bind_methods()
 
 GDNoiseBlender::GDNoiseBlender()
 {
-    terrains = std::vector<FastNoiseLite*>();
+    terrains = std::vector<MyNoise>();
     curves = std::vector<Curve*>();
     locations = std::vector<Vector2>();
     colors = std::vector<Vector3>();
     distances = std::vector<double>();
-
-    fast_dryness = MyNoise("EwDNzMw9EwBvEoM6DwADAAAAAAAAQAgAAAAAAD8AAAAAAA==", 1.0, 0);
-    fast_temperature = MyNoise("EwDNzMw9EwBvEoM6DQAGAAAAAAAAQAgAAAAAAD8AAAAAAA==", 1.0, 32);
-
-    _terrains = std::vector<std::tuple<FastNoise::SmartNode<>, double, int>>();
-    add_noise_terrain("EQAFAAAAAAAAQBAAzcxMPQ0ABQAAAAAAEEEGAAAAAAAAAAAAgD8BCAAAzczMPQAAAAAA", 0.1, 0); // desert
 }
 
 GDNoiseBlender::~GDNoiseBlender()
 {
     // Add your cleanup here.
-}
-
-void GDNoiseBlender::add_noise_terrain(const char* string, float freq, int seed)
-{
-    auto n = FastNoise::NewFromEncodedNodeTree(string);
-    _terrains.push_back(std::tuple<FastNoise::SmartNode<>, double, int>(n, freq, seed));
 }
 
 Color GDNoiseBlender::get_color()
@@ -89,14 +86,14 @@ int GDNoiseBlender::get_biome()
     return biome;
 }
 
-void GDNoiseBlender::set_temperature(FastNoiseLite* _temperature)
+void GDNoiseBlender::set_temperature(String encoded, int seed)
 {
-    temperature = _temperature;
+    temperature = MyNoise(encoded.utf8().get_data(), seed);
 }
 
-void GDNoiseBlender::set_dryness(FastNoiseLite* _dryness)
+void GDNoiseBlender::set_dryness(String encoded, int seed)
 {
-    dryness = _dryness;
+    dryness = MyNoise(encoded.utf8().get_data(), seed);
 }
 
 NoiseTexture2D* GDNoiseBlender::texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale)
@@ -120,7 +117,7 @@ ImageTexture* GDNoiseBlender::fast_texture(MyNoise noise, double x, double y, do
     float W = w + 2;
     float H = h + 2;
     floats.resize(W * H);
-    auto minmax = noise.noise->GenUniformGrid2D(floats.data(), X, Y, W, H, noise.frequency * scale, noise.seed);
+    noise.noise2d(floats.data(), X, Y, W, H);
 
     auto bytes = PackedByteArray();
     for (int i = 0; i < floats.size(); i++) {
@@ -135,44 +132,29 @@ ImageTexture* GDNoiseBlender::fast_texture(MyNoise noise, double x, double y, do
 
 ImageTexture* GDNoiseBlender::dryness_texture(double x, double y, double w, double h, double scale)
 {
-    return fast_texture(this->fast_dryness, x, y, w, h, scale);
+    return fast_texture(this->dryness, x, y, w, h, scale);
 }
 
 ImageTexture* GDNoiseBlender::temperature_texture(double x, double y, double w, double h, double scale)
 {
-    return fast_texture(this->fast_temperature, x, y, w, h, scale);
+    return fast_texture(this->temperature, x, y, w, h, scale);
 }
 
-void GDNoiseBlender::add_biome(FastNoiseLite* terrain, Curve* curve, Vector2 location, Vector3 color)
+void GDNoiseBlender::add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color)
 {
-    terrains.push_back(terrain);
+    terrains.push_back(MyNoise(terrain.utf8().get_data(), seed));
     curves.push_back(curve);
     locations.push_back(location);
     colors.push_back(color);
     distances.push_back(0.0);
 }
 
-void GDNoiseBlender::compute_biome_stats(double x, double y, bool logging)
+void GDNoiseBlender::compute_biome_stats(double x, double y)
 {
     double X = UtilityFunctions::snappedf(x, 0.0001);
     double Y = UtilityFunctions::snappedf(y, 0.0001);
-    // auto d = ((FastNoiseLite*)(Object*)dryness)->get_noise_2d(x, y) / 2.0 + 0.5;
-    // auto t = ((FastNoiseLite*)(Object*)temperature)->get_noise_2d(x, y) / 2.0 + 0.5;
-    float vd[1] = {};
-    float vt[1] = {};
-
-    // fast_dryness.noise->GenUniformGrid2D(vd, X, Y, 1.0, 1.0, fast_dryness.frequency, fast_dryness.seed);
-    // fast_temperature.noise->GenUniformGrid2D(vt, X, Y, 1.0, 1.0, fast_temperature.frequency, fast_temperature.seed);
-    vd[0] = fast_dryness.noise->GenSingle2D(X, Y, fast_dryness.seed) * fast_dryness.frequency;
-    vt[0] = fast_temperature.noise->GenSingle2D(X, Y, fast_temperature.seed) * fast_temperature.frequency;
-
-    auto d = vd[0] / 2.0 + 0.5;
-    auto t = vt[0] / 2.0 + 0.5;
-
-    if (logging) {
-        UtilityFunctions::print(X, ":", Y, " = ", d);
-        UtilityFunctions::print(X, ":", Y, " = ", t);
-    }
+    auto d = dryness.noise2d(X, Y) / 2.0 + 0.5;
+    auto t = temperature.noise2d(X, Y) / 2.0 + 0.5;
 
     auto p = Vector2(d, t);
     auto min_distance = INFINITY;
@@ -210,15 +192,16 @@ double GDNoiseBlender::height(double x, double y)
 
     profile_sum_distances.start();
     for (int i = 0; i < distances.size(); i++) {
-        profile_get_noise.start();
-        double e = ((FastNoiseLite*)(Object*)terrains[i])->get_noise_2d(X, Y) / 2.0 + 0.5;
-        profile_get_noise.lap();
-        profile_curve_sample.start();
+        // profile_get_noise.start();
+        double e = terrains[i].noise2d(X, Y) / 2.0 + 0.5;
+        // profile_get_noise.lap();
+        // profile_curve_sample.start();
         e = ((Curve*)(Object*)curves[i])->sample(e);
-        profile_curve_sample.lap();
-        double m = 1.0 - distances[i] / total_distance;
+        // profile_curve_sample.lap();
+        double m = powf(1.0 - distances[i] / total_distance, 10.0);
         result += e * m;
     }
+    // result += 400.0;
     profile_sum_distances.lap();
 
     return result;
@@ -226,7 +209,7 @@ double GDNoiseBlender::height(double x, double y)
 
 double GDNoiseBlender::grass_height(int biome, double x, double y)
 {
-    auto n = terrains.at(biome)->get_noise_2d(x, y) / 2.0 + 0.5;
+    auto n = terrains.at(biome).noise2d(x, y) / 2.0 + 0.5;
     auto e = curves.at(biome)->sample(n) / curves.at(biome)->get_max_value();
     auto s = UtilityFunctions::smoothstep(0.25, 1.0, e);
     if (s == 0.0) {

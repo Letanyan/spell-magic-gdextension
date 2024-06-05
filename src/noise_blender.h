@@ -30,7 +30,8 @@ public:
     ~MyNoise();
 
     float noise2d(float x, float y);
-    void noise2d(float* data, float x, float y, float w, float h);
+    void noise2d(float* data, float x, float y, float w, float h, float frequency);
+    void noise2d_inset(float* data, float x, float y, float w, float h, float frequency, int stride);
 };
 
 class GDNoiseBlender : public Object {
@@ -42,10 +43,12 @@ protected:
 
     float get_noise_2d(float x, float y);
 
-    MyNoise dryness;
-    MyNoise temperature;
-
-    ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);
+    std::vector<float> distances_map;
+    std::vector<float> dryness_map;
+    std::vector<float> temperature_map;
+    std::vector<float> total_distances_map;
+    std::vector<Color> colors_map;
+    std::vector<int> biomes_map;
 
 public:
     GDProfiler profile_compute;
@@ -60,6 +63,9 @@ public:
     std::vector<Curve*> curves;
     std::vector<Vector2> locations;
     std::vector<Vector3> colors;
+
+    MyNoise dryness;
+    MyNoise temperature;
 
     int biome;
     Color color;
@@ -77,11 +83,15 @@ public:
     void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
 
     void compute_biome_stats(double x, double y);
+    void compute_biome_map_stats(double x, double y, double w, double h, double scale);
     double height(double x, double y);
+    PackedFloat32Array height_map(double x, double y, double w, double h, double scale);
 
     NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);
+    ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);
     ImageTexture* dryness_texture(double x, double y, double w, double h, double scale);
     ImageTexture* temperature_texture(double x, double y, double w, double h, double scale);
+    ImageTexture* height_texture(PackedFloat32Array data, float w, float h);
 
     double grass_height(int biome, double x, double y);
 };

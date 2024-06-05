@@ -222,20 +222,14 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
 
 Dictionary GDTerrain::update_chunks(double x, double y)
 {
-    auto prof = GDProfiler();
     auto high = update_chunks_with_size(loaded_chunks, lciMAIN, x, y, chunk_size, radius, subdivide_percent, false);
-    // UtilityFunctions::print("loaded time: ", prof.stop());
     auto removed = (PackedVector2Array)high.get("removed", PackedVector2Array());
     auto updated = (PackedVector2Array)high.get("updated", PackedVector2Array());
     if (HAS_MEDIUM) {
-        prof.reset();
         update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
-        // UtilityFunctions::print("medium time: ", prof.stop());
     }
     if (HAS_WATER) {
-        prof.reset();
         update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, radius * radius * 2, 16.0 / chunk_size, true);
-        // UtilityFunctions::print("water time: ", prof.stop());
     }
     set_player_coord_using_position(x, y, chunk_size);
     auto result = Dictionary();
@@ -340,18 +334,21 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     }
 
     auto A = Vector3();
+    auto ys = blender->height_map(x, y, texture_size, texture_size, R);
+    // auto height_texture = blender->height_texture(ys, texture_size + 2, texture_size + 2);
+    auto w = (size_t)texture_size + 2;
+    bool has_static = mi->has_node("static");
     for (int i = 0; i < mdt->get_vertex_count(); i++) {
         A = mdt->get_vertex(i);
-        // if (!first_run) {
-        //     UtilityFunctions::print(A);
-        // }
-        A.y = blender->height(A.x + x, A.z + y);
+        size_t r = i / w;
+        size_t c = i % w;
+        size_t j = w * (w - r - 1) + (w - c - 1);
+        A.y = ys[j];
         mdt->set_vertex(i, A);
-        if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0 && mi->has_node("static")) {
+        if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0 && has_static) {
             max_height_position = Vector3(A.x + x, A.y, A.z + y);
         }
     }
-    first_run = true;
 
     if (r <= radius && mi->has_node("static")) {
         auto static_body = mi->get_node<StaticBody3D>("static");
@@ -360,8 +357,13 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         auto array = PackedFloat32Array();
         array.resize(hmap->get_map_data().size());
         for (int i = 0; i < mdt->get_vertex_count(); i++) {
-            auto value = mdt->get_vertex(i);
-            array.set(i, value.y / collision_shape->get_scale().y);
+            // auto value = mdt->get_vertex(i);
+            // TODO: which is faster `get_vertex` or use `ys` directly
+            size_t r = i / w;
+            size_t c = i % w;
+            size_t j = w * (w - r - 1) + (w - c - 1);
+            auto value = ys[j];
+            array.set(i, value / collision_shape->get_scale().y);
         }
         hmap->set_map_data(array);
     }
@@ -374,6 +376,7 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     mat->set_shader_parameter("texture_depth", texture_size);
     mat->set_shader_parameter("temperature", temperature_texture);
     mat->set_shader_parameter("dryness", dryness_texture);
+    // mat->set_shader_parameter("height", height_texture);
 }
 
 void GDTerrain::update_water_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide)

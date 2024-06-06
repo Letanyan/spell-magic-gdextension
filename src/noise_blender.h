@@ -12,12 +12,6 @@
 #include <string>
 #include <vector>
 
-// namespace FastNoise {
-// class Generator;
-// template <typename T>
-// class SmartNode;
-// }
-
 namespace godot {
 
 class MyNoise {
@@ -44,8 +38,10 @@ protected:
     float get_noise_2d(float x, float y);
 
     std::vector<float> distances_map;
-    std::vector<float> dryness_map;
-    std::vector<float> temperature_map;
+    std::vector<float> biome_noise_x_map;
+    std::vector<float> biome_noise_y_map;
+    std::vector<float> biome_noise_z_map;
+    std::vector<float> biome_noise_w_map;
     std::vector<float> total_distances_map;
     std::vector<Color> colors_map;
     std::vector<int> biomes_map;
@@ -61,11 +57,13 @@ public:
 
     std::vector<MyNoise> terrains;
     std::vector<Curve*> curves;
-    std::vector<Vector2> locations;
+    std::vector<Vector4> locations;
     std::vector<Vector3> colors;
 
-    MyNoise dryness;
-    MyNoise temperature;
+    MyNoise biome_noise_x;
+    MyNoise biome_noise_y;
+    MyNoise biome_noise_z;
+    MyNoise biome_noise_w;
 
     int biome;
     Color color;
@@ -77,10 +75,9 @@ public:
     double get_total_distance();
     int get_biome();
 
-    void set_temperature(String encoded, int seed);
-    void set_dryness(String encoded, int seed);
+    void set_biome_noise(String encoded, int seed, int axis);
 
-    void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
+    void add_biome(String terrain, int seed, Curve* curve, Vector4 location, Vector3 color);
 
     void compute_biome_stats(double x, double y);
     void compute_biome_map_stats(double x, double y, double w, double h, double scale);
@@ -89,8 +86,7 @@ public:
 
     NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);
     ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);
-    ImageTexture* dryness_texture(double x, double y, double w, double h, double scale);
-    ImageTexture* temperature_texture(double x, double y, double w, double h, double scale);
+    ImageTexture* biome_texture(double x, double y, double w, double h, double scale, int axis);
     ImageTexture* height_texture(PackedFloat32Array data, float w, float h);
 
     double grass_height(int biome, double x, double y);

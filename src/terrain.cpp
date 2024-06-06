@@ -324,8 +324,10 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
 
     auto R = size / (float)((int)(size * subdivide_percent));
     auto texture_size = size / R;
-    auto temperature_texture = blender->temperature_texture(x / R, y / R, texture_size, texture_size, R);
-    auto dryness_texture = blender->dryness_texture(x / R, y / R, texture_size, texture_size, R);
+    auto biome_x_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 0);
+    auto biome_y_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 1);
+    auto biome_z_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 2);
+    auto biome_w_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 3);
 
     if (base_coords.is_empty()) {
         for (int i = 0; i < mdt->get_vertex_count(); i++) {
@@ -335,21 +337,9 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
 
     auto A = Vector3();
     auto ys = blender->height_map(x, y, texture_size, texture_size, R);
-    // auto height_texture = blender->height_texture(ys, texture_size + 2, texture_size + 2);
     auto w = (size_t)texture_size + 2;
-    bool has_static = mi->has_node("static");
-    for (int i = 0; i < mdt->get_vertex_count(); i++) {
-        A = mdt->get_vertex(i);
-        size_t r = i / w;
-        size_t c = i % w;
-        size_t j = w * (w - r - 1) + (w - c - 1);
-        A.y = ys[j];
-        mdt->set_vertex(i, A);
-        if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0 && has_static) {
-            max_height_position = Vector3(A.x + x, A.y, A.z + y);
-        }
-    }
-
+    // auto height_texture = blender->height_texture(ys, texture_size + 2, texture_size + 2);
+    // bool has_static = mi->has_node("static");
     if (r <= radius && mi->has_node("static")) {
         auto static_body = mi->get_node<StaticBody3D>("static");
         auto collision_shape = static_body->get_node<CollisionShape3D>("collision");
@@ -357,15 +347,27 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         auto array = PackedFloat32Array();
         array.resize(hmap->get_map_data().size());
         for (int i = 0; i < mdt->get_vertex_count(); i++) {
-            // auto value = mdt->get_vertex(i);
-            // TODO: which is faster `get_vertex` or use `ys` directly
+            A = mdt->get_vertex(i);
             size_t r = i / w;
             size_t c = i % w;
             size_t j = w * (w - r - 1) + (w - c - 1);
-            auto value = ys[j];
-            array.set(i, value / collision_shape->get_scale().y);
+            A.y = ys[j];
+            mdt->set_vertex(i, A);
+            array.set(i, A.y / collision_shape->get_scale().y);
+            if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0) {
+                max_height_position = Vector3(A.x + x, A.y, A.z + y);
+            }
         }
         hmap->set_map_data(array);
+    } else {
+        for (int i = 0; i < mdt->get_vertex_count(); i++) {
+            A = mdt->get_vertex(i);
+            size_t r = i / w;
+            size_t c = i % w;
+            size_t j = w * (w - r - 1) + (w - c - 1);
+            A.y = ys[j];
+            mdt->set_vertex(i, A);
+        }
     }
 
     mesh->clear_surfaces();
@@ -374,8 +376,10 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     mat->set_shader(biome_shader);
     mat->set_shader_parameter("texture_width", texture_size);
     mat->set_shader_parameter("texture_depth", texture_size);
-    mat->set_shader_parameter("temperature", temperature_texture);
-    mat->set_shader_parameter("dryness", dryness_texture);
+    mat->set_shader_parameter("biome_x", biome_x_texture);
+    mat->set_shader_parameter("biome_y", biome_y_texture);
+    mat->set_shader_parameter("biome_z", biome_z_texture);
+    mat->set_shader_parameter("biome_w", biome_w_texture);
     // mat->set_shader_parameter("height", height_texture);
 }
 

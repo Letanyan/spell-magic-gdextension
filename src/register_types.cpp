@@ -1,6 +1,7 @@
 #include "register_types.h"
 
 #include "expr.h"
+#include "fast_noise_2.h"
 #include "inout.h"
 #include "navigator.h"
 #include "noise_blender.h"
@@ -24,6 +25,7 @@ void initialize_example_module(ModuleInitializationLevel p_level)
     ClassDB::register_class<GDNavigator>();
     ClassDB::register_class<GDInOut>();
     ClassDB::register_class<GDTerrain>();
+    // ClassDB::register_class<FN>();
 }
 
 void uninitialize_example_module(ModuleInitializationLevel p_level)

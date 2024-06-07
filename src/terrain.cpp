@@ -326,8 +326,6 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     auto texture_size = size / R;
     auto biome_x_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 0);
     auto biome_y_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 1);
-    auto biome_z_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 2);
-    auto biome_w_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 3);
 
     if (base_coords.is_empty()) {
         for (int i = 0; i < mdt->get_vertex_count(); i++) {
@@ -378,8 +376,6 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     mat->set_shader_parameter("texture_depth", texture_size);
     mat->set_shader_parameter("biome_x", biome_x_texture);
     mat->set_shader_parameter("biome_y", biome_y_texture);
-    mat->set_shader_parameter("biome_z", biome_z_texture);
-    mat->set_shader_parameter("biome_w", biome_w_texture);
     // mat->set_shader_parameter("height", height_texture);
 }
 

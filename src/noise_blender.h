@@ -57,13 +57,11 @@ public:
 
     std::vector<MyNoise> terrains;
     std::vector<Curve*> curves;
-    std::vector<Vector4> locations;
+    std::vector<Vector2> locations;
     std::vector<Vector3> colors;
 
     MyNoise biome_noise_x;
     MyNoise biome_noise_y;
-    MyNoise biome_noise_z;
-    MyNoise biome_noise_w;
 
     int biome;
     Color color;
@@ -77,7 +75,7 @@ public:
 
     void set_biome_noise(String encoded, int seed, int axis);
 
-    void add_biome(String terrain, int seed, Curve* curve, Vector4 location, Vector3 color);
+    void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
 
     void compute_biome_stats(double x, double y);
     void compute_biome_map_stats(double x, double y, double w, double h, double scale);

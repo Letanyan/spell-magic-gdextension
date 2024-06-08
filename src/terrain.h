@@ -24,7 +24,7 @@
 #define HAS_MEDIUM true
 #endif
 #ifndef HAS_WATER
-#define HAS_WATER 0
+#define HAS_WATER 1
 #endif
 #ifndef HAS_GRASS
 #define HAS_GRASS 0
@@ -71,8 +71,6 @@ protected:
     MultiMeshInstance3D* grass_mesh;
     PackedVector3Array grass_coords;
 
-    PackedVector3Array base_coords;
-
 public:
     enum LoadedChunkIndex {
         lciMAIN,
@@ -104,6 +102,7 @@ public:
     void update_chunk_environment(Node3D* node);
     void place_grass(Vector2 delta);
     void init_grass();
+    void hide_water(float y);
     void set_player_coord_using_position(double x, double y, double cs);
     Vector2 convert_position_to_coord(double x, double y, double cs);
 

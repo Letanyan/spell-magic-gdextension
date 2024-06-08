@@ -32,6 +32,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("update_chunk_environment", "node"), &GDTerrain::update_chunk_environment);
     ClassDB::bind_method(D_METHOD("place_grass", "delta"), &GDTerrain::place_grass);
     ClassDB::bind_method(D_METHOD("init_grass"), &GDTerrain::init_grass);
+    ClassDB::bind_method(D_METHOD("hide_water", "y"), &GDTerrain::hide_water);
     ClassDB::bind_method(D_METHOD("set_player_coord_using_position", "x", "y", "cs"), &GDTerrain::set_player_coord_using_position);
     ClassDB::bind_method(D_METHOD("convert_position_to_coord", "x", "y", "cs"), &GDTerrain::convert_position_to_coord);
 
@@ -229,7 +230,7 @@ Dictionary GDTerrain::update_chunks(double x, double y)
         update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
     }
     if (HAS_WATER) {
-        update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, radius * radius * 2, 16.0 / chunk_size, true);
+        update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size, true);
     }
     set_player_coord_using_position(x, y, chunk_size);
     auto result = Dictionary();
@@ -326,12 +327,6 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     auto texture_size = size / R;
     auto biome_x_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 0);
     auto biome_y_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 1);
-
-    if (base_coords.is_empty()) {
-        for (int i = 0; i < mdt->get_vertex_count(); i++) {
-            base_coords.append(mdt->get_vertex(i));
-        }
-    }
 
     auto A = Vector3();
     auto ys = blender->height_map(x, y, texture_size, texture_size, R);
@@ -522,6 +517,19 @@ void GDTerrain::init_grass()
         grass_coords.append(v);
     }
     mm->set_visible_instance_count(i);
+}
+
+void GDTerrain::hide_water(float y)
+{
+    if (y < sea_level - 1.5) {
+        for (size_t i = 0; i < water_chunks.size(); i++) {
+            ((Node3D*)(Object*)water_chunks[i])->set_visible(false);
+        }
+    } else {
+        for (size_t i = 0; i < water_chunks.size(); i++) {
+            ((Node3D*)(Object*)water_chunks[i])->set_visible(true);
+        }
+    }
 }
 
 void GDTerrain::set_player_coord_using_position(double x, double y, double cs)

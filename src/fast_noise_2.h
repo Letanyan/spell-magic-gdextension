@@ -8,18 +8,15 @@
 using namespace godot;
 using namespace FastNoise;
 
-class FN : public godot::RefCounted {
-    GDCLASS(FN, godot::RefCounted)
+class FN : public godot::Resource {
+    GDCLASS(FN, godot::Resource)
 protected:
     static void _bind_methods();
 
-    Generator* generator;
+    SmartNode<Generator> node;
     float value;
-    FN(Generator* generator);
     FN(SmartNode<Generator> node);
     FN(float value);
-
-    SmartNode<Generator> node();
 
 public:
     FN();
@@ -31,20 +28,29 @@ public:
     PackedFloat32Array noise3d(float x, float y, float z, float width, float height, float depth, int seed);
     PackedFloat32Array noise4d(float x, float y, float z, float w, float width, float height, float depth, float duration, int seed);
 
-    static FN* number(float value);
-    static FN* simplex();
+    void number(float value);
+    void basic_constant(float value);
+    void basic_white();
+    void basic_checkerboard(float size);
+    void basic_sine_wave(float scale);
 
-    static FN* add(FN* lhs, FN* rhs);
-    static FN* subtract(FN* lhs, FN* rhs);
-    static FN* multiply(FN* lhs, FN* rhs);
-    static FN* divide(FN* lhs, FN* rhs);
-    static FN* min(FN* lhs, FN* rhs);
-    static FN* max(FN* lhs, FN* rhs);
-    static FN* pow_float(FN* value, FN* pow);
-    static FN* pow_int(FN* value, FN* pow);
-    static FN* min_smooth(FN* lhs, FN* rhs, FN* smoothness);
-    static FN* max_smooth(FN* lhs, FN* rhs, FN* smoothness);
-    static FN* fade(FN* a, FN* b, FN* fade);
+    void source_simplex();
+    void source_open_simplex2();
+    void source_open_simplex2s();
+    void source_value();
+    void source_perlin();
+
+    void add(Ref<FN> lhs, Ref<FN> rhs);
+    void subtract(Ref<FN> lhs, Ref<FN> rhs);
+    void multiply(Ref<FN> lhs, Ref<FN> rhs);
+    void divide(Ref<FN> lhs, Ref<FN> rhs);
+    void min(Ref<FN> lhs, Ref<FN> rhs);
+    void max(Ref<FN> lhs, Ref<FN> rhs);
+    void pow_float(Ref<FN> value, Ref<FN> pow);
+    void pow_int(Ref<FN> value, Ref<FN> pow);
+    void min_smooth(Ref<FN> lhs, Ref<FN> rhs, Ref<FN> smoothness);
+    void max_smooth(Ref<FN> lhs, Ref<FN> rhs, Ref<FN> smoothness);
+    void fade(Ref<FN> a, Ref<FN> b, Ref<FN> fade);
 };
 
 #endif

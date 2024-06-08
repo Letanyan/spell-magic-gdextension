@@ -43,6 +43,7 @@ protected:
     std::vector<float> biome_noise_z_map;
     std::vector<float> biome_noise_w_map;
     std::vector<float> total_distances_map;
+    std::vector<float> min_distances_map;
     std::vector<Color> colors_map;
     std::vector<int> biomes_map;
 
@@ -59,6 +60,8 @@ public:
     std::vector<Curve*> curves;
     std::vector<Vector2> locations;
     std::vector<Vector3> colors;
+    PackedFloat32Array height_map_store;
+    std::vector<size_t> min_distances_index_map;
 
     MyNoise biome_noise_x;
     MyNoise biome_noise_y;

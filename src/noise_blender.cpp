@@ -75,6 +75,9 @@ GDNoiseBlender::GDNoiseBlender()
     biome_noise_z_map = std::vector<float>();
     biome_noise_w_map = std::vector<float>();
     total_distances_map = std::vector<float>();
+    min_distances_map = std::vector<float>();
+    min_distances_index_map = std::vector<size_t>();
+    height_map_store = PackedFloat32Array();
     colors_map = std::vector<Color>();
     biomes_map = std::vector<int>();
 }
@@ -242,6 +245,8 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
 
     distances_map.resize(map_size * locations.size());
     total_distances_map.resize(map_size);
+    min_distances_map.resize(map_size);
+    min_distances_index_map.resize(map_size);
     biomes_map.resize(map_size);
     colors_map.resize(map_size);
     for (size_t r = 0; r < w * h; r++) {
@@ -261,6 +266,8 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
                 clr = clr * c;
             }
             if (dist < min_distance) {
+                min_distances_map[r] = dist;
+                min_distances_index_map[r] = i;
                 min_distance = dist;
                 pos = i;
             }
@@ -302,9 +309,9 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
     float X = x / scale - W / 2.0 + (x / scale / scale);
     float Y = y / scale - H / 2.0 + (y / scale / scale);
     size_t map_size = (size_t)(W * H);
-    auto result = PackedFloat32Array();
-    result.resize(map_size);
-    result.fill(0.0);
+
+    height_map_store.resize(map_size);
+    height_map_store.fill(0.0);
     compute_biome_map_stats(X, Y, W, H, scale + 2);
 
     X = UtilityFunctions::snappedf(X, 0.0001);
@@ -318,12 +325,19 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
         for (int j = 0; j < terrain_noise.size(); j++) {
             double e = terrain_noise[j] * 0.5 + 0.5;
             e = curve->sample(e);
-            double m = powf(1.0 - distances_map[j * locations.size() + i] / total_distances_map[j], 1.0);
-            result[j] += e * m;
+            double m = powf(1.0 - distances_map[j * locations.size() + i] / total_distances_map[j], 20.0);
+            height_map_store[j] += e * m;
         }
     }
+    // for (int j = 0; j < map_size; j++) {
+    //     // double e = terrains[min_distances_index_map[j]].noise2d(X, Y) * 0.5 + 0.5;
+    //     double e = terrain_noise[j] * 0.5 + 0.5;
+    //     e = ((Curve*)(Object*)curves[min_distances_index_map[j]])->sample(e);
+    //     double m = powf(1.0 - min_distances_map[j] / total_distances_map[j], 1.0);
+    //     result[j] = UtilityFunctions::lerp(result[j], e * m, 0.75);
+    // }
 
-    return result;
+    return height_map_store;
 }
 
 double GDNoiseBlender::grass_height(int biome, double x, double y)

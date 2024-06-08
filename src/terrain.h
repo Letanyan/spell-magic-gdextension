@@ -24,7 +24,7 @@
 #define HAS_MEDIUM true
 #endif
 #ifndef HAS_WATER
-#define HAS_WATER 1
+#define HAS_WATER 0
 #endif
 #ifndef HAS_GRASS
 #define HAS_GRASS 0

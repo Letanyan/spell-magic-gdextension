@@ -112,7 +112,7 @@ TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
         result.append_array(medium);
     }
     if (HAS_WATER) {
-        auto water = init_chunks_of_size(water_chunks, ref, x, y, chunk_size, radius * radius * 2, 16.0 / chunk_size, true);
+        auto water = init_chunks_of_size(water_chunks, ref, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size, true);
         water_chunks_location.append_array(ref);
         ref.clear();
         result.append_array(water);
@@ -183,7 +183,7 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
             if (!is_water && abs(origin_delta.x) <= (int)(radius / 2.0) && abs(origin_delta.y) <= (int)(radius / 2.0)) {
                 should_exclude_update = true;
                 auto pos = ((Node3D*)(Object*)chunks[i])->get_position();
-                pos.y = -100;
+                pos.y = -1000;
                 ((Node3D*)(Object*)chunks[i])->set_position(pos);
             } else {
                 auto pos = ((Node3D*)(Object*)chunks[i])->get_position();
@@ -303,7 +303,7 @@ Node3D* GDTerrain::create_chunk_with_size(TypedArray<Node3D> chunks, TypedArray<
     if (r > radius) {
         auto origin_delta = convert_position_to_coord(x, y, cs);
         if (!is_water && abs(origin_delta.x) <= (int)(radius / 2.0) && abs(origin_delta.y) <= (int)(radius / 2)) {
-            pos.y = 0.0;
+            pos.y = -1000.0;
         } else {
             pos.y = !is_water ? 0.0 : sea_level;
         }
@@ -382,7 +382,6 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
 void GDTerrain::update_water_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide)
 {
     auto mesh = mi->get_mesh();
-
     auto mat = (ShaderMaterial*)*mesh->surface_get_material(0);
     mat->set_shader(water_shader);
     mat->set_shader_parameter("noise", water_noise);

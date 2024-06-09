@@ -489,9 +489,9 @@ void GDTerrain::init_grass()
     const int R = 4;
     auto grass_store = std::vector<Vector3>();
     for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
-        for (int y = -grass_size; y < grass_size + 1; y += R) {
-            auto x = _X + ((y / R) % 2 == 0 ? 1 : 0) * R + player_position.x;
-            y += player_position.y;
+        for (int _Y = -grass_size; _Y < grass_size + 1; _Y += R) {
+            auto x = _X + ((_Y / R) % 2 == 0 ? 1 : 0) * R + player_position.x;
+            auto y = _Y + player_position.y;
             for (int r = 0; r < R + 1; r += 2) {
                 auto a = 0.0;
                 while (a < Math_PI * 2) {

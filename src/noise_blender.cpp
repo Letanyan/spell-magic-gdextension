@@ -196,7 +196,7 @@ void GDNoiseBlender::add_biome(String terrain, int seed, Curve* curve, Vector2 l
 
 float axial_dependant_distance(Vector2 a, Vector2 b)
 {
-    return 10 * abs(a.x - b.x) + abs(a.y - b.y);
+    return abs(a.x - b.x) * axial_weight + abs(a.y - b.y);
 }
 
 void GDNoiseBlender::compute_biome_stats(double x, double y)
@@ -217,8 +217,8 @@ void GDNoiseBlender::compute_biome_stats(double x, double y)
         dist = axial_dependant_distance(p, locations[i]);
         distances[i] = dist;
         total_distance += dist;
-        c = colors[i].lerp(Vector3(1, 1, 1), dist);
-        if (dist <= 1.0) {
+        if (dist <= (axial_weight + 1.0)) {
+            c = Vector3(1, 1, 1).lerp(colors[i], powf(1.0 - dist / (axial_weight + 1.0), 3.0));
             clr = clr * c;
         }
         if (dist < min_distance) {
@@ -262,7 +262,8 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
             distances_map[r * locations.size() + i] = dist;
             total_distance += dist;
             c = colors[i].lerp(Vector3(1, 1, 1), dist);
-            if (dist <= 1.0) {
+            if (dist <= (axial_weight + 1.0)) {
+                c = Vector3(1, 1, 1).lerp(colors[i], powf(1.0 - dist / (axial_weight + 1.0), 3.0));
                 clr = clr * c;
             }
             if (dist < min_distance) {
@@ -293,7 +294,7 @@ double GDNoiseBlender::height(double x, double y)
     for (int i = 0; i < distances.size(); i++) {
         double e = terrains[i].noise2d(X, Y) / 2.0 + 0.5;
         e = ((Curve*)(Object*)curves[i])->sample(e);
-        double m = powf(1.0 - distances[i] / total_distance, 1.0);
+        double m = powf(1.0 - distances[i] / total_distance, 20.0);
         result += e * m;
     }
     // result += 400.0;

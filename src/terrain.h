@@ -27,7 +27,7 @@
 #define HAS_WATER 1
 #endif
 #ifndef HAS_GRASS
-#define HAS_GRASS 0
+#define HAS_GRASS 1
 #endif
 
 namespace godot {

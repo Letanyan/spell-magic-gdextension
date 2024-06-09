@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#define axial_weight 2.0
+
 namespace godot {
 
 class MyNoise {

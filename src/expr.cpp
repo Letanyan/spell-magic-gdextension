@@ -140,8 +140,21 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
     }
 }
 
+double clerpf(double a, double b, double t)
+{
+    return UtilityFunctions::lerpf(a, b, UtilityFunctions::clampf(t, 0.0, 1.0));
+}
+
 double GDExpr::compute(godot::Dictionary map)
 {
+#define POP_VAR(name, error_message) \
+    tape_index -= 1;                 \
+    if (tape_index < 0) {            \
+        error = error_message;       \
+        return 0.0;                  \
+    }                                \
+    auto name = tape[tape_index];
+
     auto tape = std::vector<float>(8);
     long long tape_index = 0;
     for (auto& e : expression) {
@@ -259,20 +272,10 @@ double GDExpr::compute(godot::Dictionary map)
             } else if (e.raw == "inv") {
                 value = a != 0 ? (1 / a) : 0;
             } else if (e.raw == "mod") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "mod requires 2 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
+                POP_VAR(b, "mod requires 2 parameters")
                 value = a != 0 ? fmod(b, a) : 0;
             } else if (e.raw == "div") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "div requires 2 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
+                POP_VAR(b, "div requires 2 parameters")
                 value = a != 0 ? floor(b / a) : 0;
             } else if (e.raw == "floor") {
                 value = floor(a);
@@ -281,20 +284,10 @@ double GDExpr::compute(godot::Dictionary map)
             } else if (e.raw == "round") {
                 value = round(a);
             } else if (e.raw == "max") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "max requires 2 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
+                POP_VAR(b, "max requires 2 parameters")
                 value = a < b ? b : a;
             } else if (e.raw == "min") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "min requires 2 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
+                POP_VAR(b, "min requires 2 parameters")
                 value = a < b ? a : b;
             } else if (e.raw == "lt") {
                 value = a < 0 ? 1 : 0;
@@ -309,12 +302,7 @@ double GDExpr::compute(godot::Dictionary map)
             } else if (e.raw == "neq") {
                 value = a != 0 ? 1 : 0;
             } else if (e.raw == "pow") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "pow requires 2 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
+                POP_VAR(b, "pow requires 2 parameters")
                 value = pow(a, b);
             } else if (e.raw == "log10") {
                 value = log10f(a);
@@ -323,46 +311,16 @@ double GDExpr::compute(godot::Dictionary map)
             } else if (e.raw == "abs") {
                 value = abs(a);
             } else if (e.raw == "lerp") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "lerp requires 3 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "lerp requires 3 parameters";
-                    return 0.0;
-                }
-                auto c = tape[tape_index];
+                POP_VAR(b, "lerp requires 3 parameters")
+                POP_VAR(c, "lerp requires 3 parameters")
                 value = UtilityFunctions::lerpf(b, a, c);
             } else if (e.raw == "if") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "if requires 3 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "if requires 3 parameters";
-                    return 0.0;
-                }
-                auto c = tape[tape_index];
+                POP_VAR(b, "if requires 3 parameters")
+                POP_VAR(c, "if requires 3 parameters")
                 value = c != 0.0 ? b : a;
             } else if (e.raw == "clamp") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "clamp requires 3 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "clamp requires 3 parameters";
-                    return 0.0;
-                }
-                auto c = tape[tape_index];
+                POP_VAR(b, "clamp requires 3 parameters")
+                POP_VAR(c, "clamp requires 3 parameters")
                 if (c < b) {
                     value = b;
                 } else if (c > a) {
@@ -371,53 +329,18 @@ double GDExpr::compute(godot::Dictionary map)
                     value = c;
                 }
             } else if (e.raw == "quad") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "quad requires 4 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "quad requires 4 parameters";
-                    return 0.0;
-                }
-                auto c = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "quad requires 4 parameters";
-                    return 0.0;
-                }
-                auto d = tape[tape_index];
+                POP_VAR(b, "quad requires 4 parameters")
+                POP_VAR(c, "quad requires 4 parameters")
+                POP_VAR(d, "quad requires 4 parameters")
 
                 float x1 = UtilityFunctions::lerpf(c, b, d);
                 float x2 = UtilityFunctions::lerpf(b, a, d);
                 value = UtilityFunctions::lerpf(x1, x2, d);
             } else if (e.raw == "cubic") {
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "cubic requires 5 parameters";
-                    return 0.0;
-                }
-                auto b = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "cubic requires 5 parameters";
-                    return 0.0;
-                }
-                auto c = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "cubic requires 5 parameters";
-                    return 0.0;
-                }
-                auto d = tape[tape_index];
-                tape_index -= 1;
-                if (tape_index < 0) {
-                    error = "cubic requires 5 parameters";
-                    return 0.0;
-                }
-                auto e = tape[tape_index];
+                POP_VAR(b, "cubic requires 5 parameters")
+                POP_VAR(c, "cubic requires 5 parameters")
+                POP_VAR(d, "cubic requires 5 parameters")
+                POP_VAR(e, "cubic requires 5 parameters")
 
                 float x1 = UtilityFunctions::lerpf(d, c, e);
                 float y1 = UtilityFunctions::lerpf(c, a, e);
@@ -426,6 +349,62 @@ double GDExpr::compute(godot::Dictionary map)
                 float y2 = UtilityFunctions::lerpf(b, a, e);
                 float z2 = UtilityFunctions::lerpf(x2, y2, e);
                 value = UtilityFunctions::lerpf(z1, z2, e);
+            } else if (e.raw == "segment2") {
+                POP_VAR(b, "segment2 requires 4 parameters")
+                POP_VAR(c, "segment2 requires 4 parameters")
+                POP_VAR(d, "segment2 requires 4 parameters")
+                value = clerpf(b, c, d / a);
+            } else if (e.raw == "segment3") {
+                POP_VAR(b, "segment3 requires 6 parameters")
+                POP_VAR(c, "segment3 requires 6 parameters")
+                POP_VAR(d, "segment3 requires 6 parameters")
+                POP_VAR(e, "segment3 requires 6 parameters")
+                POP_VAR(f, "segment3 requires 6 parameters")
+
+                // f=t, e d c, b=d1, a=d2
+                if (f <= b) {
+                    value = clerpf(e, d, f / b);
+                } else {
+                    value = clerpf(d, c, (f - b) / a);
+                }
+            } else if (e.raw == "segment4") {
+                POP_VAR(b, "segment4 requires 8 parameters")
+                POP_VAR(c, "segment4 requires 8 parameters")
+                POP_VAR(d, "segment4 requires 8 parameters")
+                POP_VAR(e, "segment4 requires 8 parameters")
+                POP_VAR(f, "segment4 requires 8 parameters")
+                POP_VAR(g, "segment4 requires 8 parameters")
+                POP_VAR(h, "segment4 requires 8 parameters")
+
+                // h=t, g f e d, c=d1, b=d2, a=d3
+                if (h <= c) {
+                    value = clerpf(g, f, h / c);
+                } else if (h <= c + b) {
+                    value = clerpf(f, e, (h - c) / b);
+                } else {
+                    value = clerpf(e, d, (h - c - b) / a);
+                }
+            } else if (e.raw == "segment5") {
+                POP_VAR(b, "segment5 requires 10 parameters")
+                POP_VAR(c, "segment5 requires 10 parameters")
+                POP_VAR(d, "segment5 requires 10 parameters")
+                POP_VAR(e, "segment5 requires 10 parameters")
+                POP_VAR(f, "segment5 requires 10 parameters")
+                POP_VAR(g, "segment5 requires 10 parameters")
+                POP_VAR(h, "segment5 requires 10 parameters")
+                POP_VAR(i, "segment5 requires 10 parameters")
+                POP_VAR(j, "segment5 requires 10 parameters")
+
+                // j=t, h i g f e, d=d1, c=d2, b=d3, a=d4
+                if (j <= d) {
+                    value = clerpf(h, i, j / d);
+                } else if (j <= d + c) {
+                    value = clerpf(i, g, (j - d) / c);
+                } else if (j <= d + c + b) {
+                    value = clerpf(g, f, (j - d - c) / b);
+                } else {
+                    value = clerpf(f, e, (j - d - c - b) / a);
+                }
             }
             if (std::isnan(value)) {
                 value = 0.0;

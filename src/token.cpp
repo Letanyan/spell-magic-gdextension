@@ -41,6 +41,9 @@ bool is_func(godot::String name)
     if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {
         return true;
     }
+    if (name == "segment2" || name == "segment3" || name == "segment4" || name == "segment5") {
+        return true;
+    }
     return false;
 }
 

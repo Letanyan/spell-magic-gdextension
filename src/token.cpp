@@ -38,6 +38,9 @@ bool is_func(godot::String name)
     if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs") {
         return true;
     }
+    if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {
+        return true;
+    }
     return false;
 }
 

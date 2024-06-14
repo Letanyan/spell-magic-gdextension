@@ -3,7 +3,7 @@
 #include "token.h"
 #include <math.h>
 
-// #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/utility_functions.hpp>
 
 using namespace godot;
 
@@ -335,7 +335,97 @@ double GDExpr::compute(godot::Dictionary map)
                     return 0.0;
                 }
                 auto c = tape[tape_index];
-                value = b + c * (a - b);
+                value = UtilityFunctions::lerpf(b, a, c);
+            } else if (e.raw == "if") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "if requires 3 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "if requires 3 parameters";
+                    return 0.0;
+                }
+                auto c = tape[tape_index];
+                value = c != 0.0 ? b : a;
+            } else if (e.raw == "clamp") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "clamp requires 3 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "clamp requires 3 parameters";
+                    return 0.0;
+                }
+                auto c = tape[tape_index];
+                if (c < b) {
+                    value = b;
+                } else if (c > a) {
+                    value = a;
+                } else {
+                    value = c;
+                }
+            } else if (e.raw == "quad") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "quad requires 4 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "quad requires 4 parameters";
+                    return 0.0;
+                }
+                auto c = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "quad requires 4 parameters";
+                    return 0.0;
+                }
+                auto d = tape[tape_index];
+
+                float x1 = UtilityFunctions::lerpf(c, b, d);
+                float x2 = UtilityFunctions::lerpf(b, a, d);
+                value = UtilityFunctions::lerpf(x1, x2, d);
+            } else if (e.raw == "cubic") {
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "cubic requires 5 parameters";
+                    return 0.0;
+                }
+                auto b = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "cubic requires 5 parameters";
+                    return 0.0;
+                }
+                auto c = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "cubic requires 5 parameters";
+                    return 0.0;
+                }
+                auto d = tape[tape_index];
+                tape_index -= 1;
+                if (tape_index < 0) {
+                    error = "cubic requires 5 parameters";
+                    return 0.0;
+                }
+                auto e = tape[tape_index];
+
+                float x1 = UtilityFunctions::lerpf(d, c, e);
+                float y1 = UtilityFunctions::lerpf(c, a, e);
+                float z1 = UtilityFunctions::lerpf(x1, y1, e);
+                float x2 = UtilityFunctions::lerpf(c, b, e);
+                float y2 = UtilityFunctions::lerpf(b, a, e);
+                float z2 = UtilityFunctions::lerpf(x2, y2, e);
+                value = UtilityFunctions::lerpf(z1, z2, e);
             }
             if (std::isnan(value)) {
                 value = 0.0;

@@ -331,8 +331,6 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     auto A = Vector3();
     auto ys = blender->height_map(x, y, texture_size, texture_size, R);
     auto w = (size_t)texture_size + 2;
-    // auto height_texture = blender->height_texture(ys, texture_size + 2, texture_size + 2);
-    // bool has_static = mi->has_node("static");
     if (r <= radius && mi->has_node("static")) {
         auto static_body = mi->get_node<StaticBody3D>("static");
         auto collision_shape = static_body->get_node<CollisionShape3D>("collision");

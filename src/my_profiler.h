@@ -1,15 +1,17 @@
 #ifndef GDPROFILER_H
 #define GDPROFILER_H
 
+#include <stdint.h>
+
 class GDProfiler {
 public:
-    double start_time;
+    uint64_t start_time;
     double elapsed;
     GDProfiler();
     ~GDProfiler();
 
     void start();
-    void reset();
+    double reset();
     double lap();
     double stop();
 };

@@ -1,5 +1,6 @@
 #include "expr.h"
 #include "expr_optimizer.h"
+#include "my_profiler.h"
 #include "token.h"
 #include <math.h>
 
@@ -12,6 +13,7 @@ void GDExpr::_bind_methods()
     ClassDB::bind_static_method("GDExpr", D_METHOD("bake", "expr", "map"), &GDExpr::bake);
 
     ClassDB::bind_method(D_METHOD("build_in", "expr"), &GDExpr::build_in);
+    ClassDB::bind_method(D_METHOD("copy_from", "expr"), &GDExpr::copy_from);
 
     ClassDB::bind_method(D_METHOD("build", "expression"), &GDExpr::build);
     ClassDB::bind_method(D_METHOD("compute", "variables"), &GDExpr::compute);
@@ -55,8 +57,8 @@ void GDExpr::build(godot::String expr)
 void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
 {
     error = "";
-    expression = std::vector<GDToken>();
-    auto operators = std::vector<GDToken>();
+    expression = std::vector<GDToken>(tokens.size());
+    auto operators = std::vector<GDToken>(tokens.size());
     int i = 0;
     while (i < tokens.size()) {
         auto token = tokens[i];
@@ -496,4 +498,12 @@ String GDExpr::bake(String expr, Dictionary map)
     bake_into_vector(tokens, &output, map, &chain);
     return godot::optimize(output);
     // return godot::build_string_from_tokens(output);
+}
+
+void GDExpr::copy_from(GDExpr* expr)
+{
+    for (auto e : this->expression) {
+        expr->expression.push_back(e);
+    }
+    this->error = expr->error;
 }

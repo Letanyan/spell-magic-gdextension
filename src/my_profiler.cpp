@@ -5,30 +5,32 @@
 GDProfiler::GDProfiler()
 {
     elapsed = 0.0;
-    start_time = godot::Time::get_singleton()->get_unix_time_from_system();
+    start_time = godot::Time::get_singleton()->get_ticks_usec();
 }
 GDProfiler::~GDProfiler() { }
 
 void GDProfiler::start()
 {
-    start_time = godot::Time::get_singleton()->get_unix_time_from_system();
+    start_time = godot::Time::get_singleton()->get_ticks_usec();
 }
 
-void GDProfiler::reset()
+double GDProfiler::reset()
 {
-    start_time = godot::Time::get_singleton()->get_unix_time_from_system();
+    auto result = (godot::Time::get_singleton()->get_ticks_usec() - start_time) * 1e-6;
+    start_time = godot::Time::get_singleton()->get_ticks_usec();
     elapsed = 0.0;
+    return result;
 }
 
 double GDProfiler::lap()
 {
-    elapsed += godot::Time::get_singleton()->get_unix_time_from_system() - start_time;
-    start_time = godot::Time::get_singleton()->get_unix_time_from_system();
+    elapsed += (godot::Time::get_singleton()->get_ticks_usec() - start_time) * 1e-6;
+    start_time = godot::Time::get_singleton()->get_ticks_usec();
     return elapsed;
 }
 
 double GDProfiler::stop()
 {
-    elapsed = godot::Time::get_singleton()->get_unix_time_from_system() - start_time;
+    elapsed = (godot::Time::get_singleton()->get_ticks_usec() - start_time) * 1e-6;
     return elapsed;
 }

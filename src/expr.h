@@ -34,6 +34,8 @@ public:
 
     bool contains_variable(String var_name);
     static String bake(String expr, Dictionary map);
+
+    void copy_from(GDExpr* expr);
 };
 
 }

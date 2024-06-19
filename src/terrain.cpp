@@ -56,6 +56,7 @@ void GDTerrain::init(GDNoiseBlender* b, double cs, double r, double subdivide)
     this->chunk_size = cs;
     this->grass_size = cs * 0.5;
     this->radius = r;
+    chunk_vertices = PackedVector3Array();
 }
 
 void GDTerrain::set_biome_shader(Shader* biome_shader)
@@ -320,8 +321,13 @@ Node3D* GDTerrain::create_chunk_with_size(TypedArray<Node3D> chunks, TypedArray<
 void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide)
 {
     auto mesh = (ArrayMesh*)*mi->get_mesh();
-    auto mdt = new MeshDataTool();
-    mdt->create_from_surface(mesh, 0);
+    auto mesh_data = mi->get_mesh()->surface_get_arrays(0);
+    if (chunk_vertices.is_empty()) {
+        auto positions = (PackedVector3Array)mesh_data[Mesh::ArrayType::ARRAY_VERTEX];
+        for (int i = 0; i < positions.size(); i++) {
+            chunk_vertices.append(positions[i]);
+        }
+    }
 
     auto R = size / (float)((int)(size * subdivide_percent));
     auto texture_size = size / R;
@@ -337,13 +343,13 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         auto hmap = (HeightMapShape3D*)*collision_shape->get_shape();
         auto array = PackedFloat32Array();
         array.resize(hmap->get_map_data().size());
-        for (int i = 0; i < mdt->get_vertex_count(); i++) {
-            A = mdt->get_vertex(i);
+        for (int i = 0; i < chunk_vertices.size(); i++) {
+            A = chunk_vertices[i];
             size_t r = i / w;
             size_t c = i % w;
             size_t j = w * (w - r - 1) + (w - c - 1);
             A.y = ys[j];
-            mdt->set_vertex(i, A);
+            chunk_vertices[i].y = ys[j];
             array.set(i, A.y / collision_shape->get_scale().y);
             if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0) {
                 max_height_position = Vector3(A.x + x, A.y, A.z + y);
@@ -351,18 +357,21 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         }
         hmap->set_map_data(array);
     } else {
-        for (int i = 0; i < mdt->get_vertex_count(); i++) {
-            A = mdt->get_vertex(i);
+        for (int i = 0; i < chunk_vertices.size(); i++) {
+            A = chunk_vertices[i];
             size_t r = i / w;
             size_t c = i % w;
             size_t j = w * (w - r - 1) + (w - c - 1);
             A.y = ys[j];
-            mdt->set_vertex(i, A);
+            chunk_vertices[i].y = ys[j];
         }
     }
 
     mesh->clear_surfaces();
-    mdt->commit_to_surface(mesh);
+    mesh_data[Mesh::ArrayType::ARRAY_VERTEX] = chunk_vertices;
+    mesh->add_surface_from_arrays(Mesh::PrimitiveType::PRIMITIVE_TRIANGLES, mesh_data);
+    mesh->surface_set_material(0, new ShaderMaterial());
+
     auto mat = (ShaderMaterial*)*mesh->surface_get_material(0);
     mat->set_shader(biome_shader);
     mat->set_shader_parameter("texture_width", texture_size);

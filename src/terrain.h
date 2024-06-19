@@ -68,6 +68,8 @@ protected:
     PackedVector2Array water_chunks_location;
     TypedArray<Node3D> water_chunks;
 
+    PackedVector3Array chunk_vertices;
+
     MultiMeshInstance3D* grass_mesh;
     PackedVector3Array grass_coords;
 

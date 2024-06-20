@@ -83,7 +83,7 @@ public:
     GDTerrain();
     ~GDTerrain();
 
-    void init(GDNoiseBlender* b, double cs = 256, double r = 3, double subdivide = 0.0625);
+    void init(GDNoiseBlender* b, double cs = 256, double r = 3, double subdivide = 0.0625, double medium_chunk_width = 18);
     void set_biome_shader(Shader* biome_shader);
     void set_water_shader(Shader* water_shader);
     void set_water_noise(NoiseTexture2D* water_noise);

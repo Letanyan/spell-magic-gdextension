@@ -49,13 +49,14 @@ GDTerrain::~GDTerrain()
 {
 }
 
-void GDTerrain::init(GDNoiseBlender* b, double cs, double r, double subdivide)
+void GDTerrain::init(GDNoiseBlender* b, double cs, double r, double subdivide, double medium_chunk_width)
 {
     this->subdivide_percent = subdivide;
     this->blender = b;
     this->chunk_size = cs;
     this->grass_size = cs * 0.5;
     this->radius = r;
+    this->medium_chunk_width = medium_chunk_width;
     chunk_vertices = PackedVector3Array();
 }
 
@@ -106,7 +107,6 @@ TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
     auto result = init_chunks_of_size(loaded_chunks, ref, x, y, chunk_size, radius, subdivide_percent, false);
     loaded_chunks_location.append_array(ref);
     ref.clear();
-    medium_chunk_width = radius * radius * 4;
     if (HAS_MEDIUM) {
         auto medium = init_chunks_of_size(medium_chunks, ref, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
         medium_chunks_location.append_array(ref);

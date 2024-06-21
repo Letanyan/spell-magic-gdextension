@@ -18,8 +18,8 @@ namespace godot {
 enum MovementOptions { CAN_FLY = 1 << 0,
     UNDERGROUND = 1 << 1 };
 
-class GDNavigator : public Object {
-    GDCLASS(GDNavigator, Object)
+class GDNavigator : public RefCounted {
+    GDCLASS(GDNavigator, RefCounted)
 
 private:
 protected:

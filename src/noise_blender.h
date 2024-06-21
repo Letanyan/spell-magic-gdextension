@@ -30,8 +30,8 @@ public:
     void noise2d_inset(float* data, float x, float y, float w, float h, float frequency, int stride);
 };
 
-class GDNoiseBlender : public Object {
-    GDCLASS(GDNoiseBlender, Object)
+class GDNoiseBlender : public RefCounted {
+    GDCLASS(GDNoiseBlender, RefCounted)
 
 private:
 protected:

@@ -32,8 +32,8 @@
 
 namespace godot {
 
-class GDTerrain : public Object {
-    GDCLASS(GDTerrain, Object)
+class GDTerrain : public RefCounted {
+    GDCLASS(GDTerrain, RefCounted)
 
     bool first_run;
 

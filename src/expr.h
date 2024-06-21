@@ -8,8 +8,8 @@
 
 namespace godot {
 
-class GDExpr : public Object {
-    GDCLASS(GDExpr, Object)
+class GDExpr : public RefCounted {
+    GDCLASS(GDExpr, RefCounted)
 
 private:
 protected:

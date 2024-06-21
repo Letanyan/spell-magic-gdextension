@@ -26,8 +26,8 @@ public:
     GDToken(GDTokenKind _kind, godot::String _raw);
     ~GDToken();
 
-    GDTokenKind kind;
     godot::String raw;
+    GDTokenKind kind;
 };
 
 std::vector<GDToken> tokenize(godot::String expr);

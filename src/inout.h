@@ -9,8 +9,8 @@
 
 namespace godot {
 
-class GDInOut : public Object {
-    GDCLASS(GDInOut, Object)
+class GDInOut : public RefCounted {
+    GDCLASS(GDInOut, RefCounted)
 
 private:
 protected:

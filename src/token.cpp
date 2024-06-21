@@ -47,35 +47,51 @@ bool is_func(godot::String name)
     return false;
 }
 
+bool __is_alpha__(char c)
+{
+    return isalpha(c) || c == '_';
+}
+
+bool __is_alpha_num__(char c)
+{
+    return __is_alpha__(c) || isdigit(c);
+}
+
+bool __is_digit___(char c)
+{
+    return isdigit(c);
+}
+
+bool __is_op__(char c)
+{
+    return c == '+' || c == '-' || c == '/' || c == '*' || c == '^';
+}
+
 std::vector<GDToken> godot::tokenize(godot::String expr)
 {
     GDTokenKind state = tkNONE;
-    auto result = std::vector<GDToken>();
+    auto result = std::vector<GDToken>(8);
 
-    godot::String current = "";
     bool last_was_op = true;
-    godot::String digits = "1234567890";
-    godot::String alpha_num = "qwertyuiopasdfghjklzxcvbnm1234567890QWERTYUIOPASDFGHJKLZXCVBNM_";
-    godot::String alpha = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_";
-    godot::String operators = "+-/*^";
-    // for (char& c : expr) {
+    godot::String current = "";
+
+    const char32_t* expr_ptr = expr.ptr();
+    // for (char c : expr) {
     for (int i = 0; i < expr.length(); i++) {
-        char32_t c = expr[i];
-        godot::String sc = "";
-        sc += c;
+        char32_t c = expr_ptr[i];
         switch (state) {
         case tkNUMBER:
-            if (digits.contains(sc) || c == '.') {
-                current += (c);
+            if (__is_digit___(c) || c == '.') {
+                current += c;
             } else {
-                result.push_back(GDToken(tkNUMBER, godot::String(current)));
+                result.push_back(GDToken(tkNUMBER, current));
                 last_was_op = false;
                 current = "";
                 state = tkNONE;
             }
             break;
         case tkWORD:
-            if (alpha_num.contains(sc)) {
+            if (__is_alpha_num__(c)) {
                 current += c;
             } else {
                 GDTokenKind k = is_func(current) ? tkFUNC : tkVAR;
@@ -90,41 +106,41 @@ std::vector<GDToken> godot::tokenize(godot::String expr)
 
         switch (state) {
         case tkNONE:
-            if (digits.contains(sc)) {
+            if (__is_digit___(c)) {
                 state = tkNUMBER;
                 current += c;
-            } else if (alpha.contains(sc)) {
+            } else if (__is_alpha__(c)) {
                 state = tkWORD;
                 current += c;
-            } else if (operators.contains(sc)) {
+            } else if (__is_op__(c)) {
                 current += c;
                 if (last_was_op && (c == '+' || c == '-')) {
-                    result.push_back(GDToken(tkPREFIX_OP, godot::String(current)));
+                    result.push_back(GDToken(tkPREFIX_OP, current));
                 } else {
-                    result.push_back(GDToken(tkOP, godot::String(current)));
+                    result.push_back(GDToken(tkOP, current));
                     last_was_op = true;
                 }
                 current = "";
             } else if (c == '(') {
                 current += c;
-                result.push_back(GDToken(tkOPEN, godot::String(current)));
+                result.push_back(GDToken(tkOPEN, current));
                 current = "";
                 last_was_op = true;
             } else if (c == ')') {
                 current += c;
-                result.push_back(GDToken(tkCLOSE, godot::String(current)));
+                result.push_back(GDToken(tkCLOSE, current));
                 current = "";
                 last_was_op = false;
             } else if (c == ',') {
                 current += c;
-                result.push_back(GDToken(tkCOMMA, godot::String(current)));
+                result.push_back(GDToken(tkCOMMA, current));
                 current = "";
                 last_was_op = true;
             } else if (c == ' ') {
 
             } else {
                 current += c;
-                result.push_back(GDToken(tkERROR, godot::String(current)));
+                result.push_back(GDToken(tkERROR, current));
                 current = "";
                 last_was_op = false;
             }
@@ -133,14 +149,14 @@ std::vector<GDToken> godot::tokenize(godot::String expr)
         }
     }
 
-    if (current.length() > 0) {
+    if (!current.is_empty()) {
         switch (state) {
         case tkNUMBER:
-            result.push_back(GDToken(tkNUMBER, godot::String(current)));
+            result.push_back(GDToken(tkNUMBER, current));
             break;
         case tkWORD: {
             GDTokenKind k = is_func(current) ? tkFUNC : tkVAR;
-            result.push_back(GDToken(k, godot::String(current)));
+            result.push_back(GDToken(k, current));
         } break;
         default:
             break;

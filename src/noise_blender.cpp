@@ -65,7 +65,7 @@ GDNoiseBlender::GDNoiseBlender()
 {
     terrains = std::vector<MyNoise>();
     curves = std::vector<Curve*>();
-    locations = std::vector<Vector2>();
+    locations = PackedVector2Array();
     colors = std::vector<Vector3>();
     distances = std::vector<double>();
 
@@ -189,7 +189,7 @@ void GDNoiseBlender::add_biome(String terrain, int seed, Curve* curve, Vector2 l
 {
     terrains.push_back(MyNoise(terrain.utf8().get_data(), seed));
     curves.push_back(curve);
-    locations.push_back(location);
+    locations.append(location);
     colors.push_back(color);
     distances.push_back(0.0);
 }

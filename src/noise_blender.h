@@ -60,7 +60,7 @@ public:
 
     std::vector<MyNoise> terrains;
     std::vector<Curve*> curves;
-    std::vector<Vector2> locations;
+    PackedVector2Array locations;
     std::vector<Vector3> colors;
     PackedFloat32Array height_map_store;
     std::vector<size_t> min_distances_index_map;

@@ -16,6 +16,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_water_shader", "water_shader"), &GDTerrain::set_water_shader);
     ClassDB::bind_method(D_METHOD("set_water_noise", "water_noise"), &GDTerrain::set_water_noise);
     ClassDB::bind_method(D_METHOD("set_water_ripples_noise", "water_ripples_noise"), &GDTerrain::set_water_ripples_noise);
+    ClassDB::bind_method(D_METHOD("set_noise_texture", "noise_texture"), &GDTerrain::set_noise_texture);
     ClassDB::bind_method(D_METHOD("set_sea_level", "level"), &GDTerrain::set_sea_level);
 
     ClassDB::bind_method(D_METHOD("init_chunks_of_size", "chunks", "locations", "x", "y", "cs", "r", "subdivide", "is_water"), &GDTerrain::init_chunks_of_size);
@@ -78,6 +79,11 @@ void GDTerrain::set_water_noise(NoiseTexture2D* water_noise)
 void GDTerrain::set_water_ripples_noise(NoiseTexture2D* water_ripples_noise)
 {
     this->water_ripples_noise = water_ripples_noise;
+}
+
+void GDTerrain::set_noise_texture(NoiseTexture2D* noise_texture)
+{
+    this->noise_texture = noise_texture;
 }
 
 void GDTerrain::set_sea_level(double level)
@@ -378,6 +384,8 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     mat->set_shader_parameter("texture_depth", texture_size);
     mat->set_shader_parameter("biome_x", biome_x_texture);
     mat->set_shader_parameter("biome_y", biome_y_texture);
+    mat->set_shader_parameter("noise", noise_texture);
+    mat->set_shader_parameter("locations", blender->locations);
     // mat->set_shader_parameter("height", height_texture);
 }
 

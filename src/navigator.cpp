@@ -1,5 +1,6 @@
 #include "navigator.h"
 #include "inout.h"
+#include <bit>
 #include <iostream>
 #include <math.h>
 #include <queue>
@@ -20,6 +21,7 @@ using namespace godot;
 
 void GDNavigator::_bind_methods()
 {
+    ClassDB::bind_method(D_METHOD("popcnt", "number"), &GDNavigator::popcnt);
     ClassDB::bind_method(D_METHOD("shape_max_bound", "shape"), &GDNavigator::shape_max_bound);
     ClassDB::bind_method(D_METHOD("shape_height", "shape"), &GDNavigator::shape_height);
     ClassDB::bind_method(D_METHOD("shape_increase", "shape", "amount"), &GDNavigator::shape_increase);
@@ -51,6 +53,11 @@ GDNavigator::GDNavigator()
 GDNavigator::~GDNavigator()
 {
     // Add your cleanup here.
+}
+
+int GDNavigator::popcnt(unsigned int number)
+{
+    return __popcnt(number);
 }
 
 float GDNavigator::shape_max_bound(Shape3D* shape)

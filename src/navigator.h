@@ -29,6 +29,7 @@ public:
     GDNavigator();
     ~GDNavigator();
 
+    int popcnt(unsigned int number);
     float shape_max_bound(Shape3D* shape);
     float shape_height(Shape3D* shape);
     Shape3D* shape_increase(Shape3D* shape, float amount);

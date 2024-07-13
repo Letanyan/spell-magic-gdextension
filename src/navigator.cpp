@@ -213,8 +213,8 @@ CollisionShape3D* GDNavigator::get_ray_intersection(CollisionObject3D* p, Vector
     auto obj = (CollisionObject3D*)(Object*)p;
     auto space_state = obj->get_world_3d()->get_direct_space_state();
     auto query = new PhysicsRayQueryParameters3D();
-    query->set_from(from + Vector3(0, 1, 0));
-    query->set_to(target + Vector3(0, 1, 0));
+    query->set_from(from);
+    query->set_to(target);
     query->set_collision_mask(~1);
     auto exclude = TypedArray<RID>();
     exclude.append(obj->get_rid());

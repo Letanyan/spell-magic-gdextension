@@ -44,6 +44,12 @@ bool is_func(godot::String name)
     if (name == "segment2" || name == "segment3" || name == "segment4" || name == "segment5") {
         return true;
     }
+    if (name == "dot2" || name == "dot3" || name == "cross_x" || name == "cross_y" || name == "cross_z") {
+        return true;
+    }
+    if (name == "proj_x" || name == "proj_y" || name == "proj_z" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
+        return true;
+    }
     return false;
 }
 

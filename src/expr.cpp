@@ -149,6 +149,8 @@ double clerpf(double a, double b, double t)
 
 double GDExpr::compute(godot::Dictionary map)
 {
+    // parameters are in reverse order. For example the first popped var is the last parameter:
+    // f(..., z, ..., c, b, a)
 #define POP_VAR(name, error_message) \
     tape_index -= 1;                 \
     if (tape_index < 0) {            \
@@ -305,7 +307,7 @@ double GDExpr::compute(godot::Dictionary map)
                 value = a != 0 ? 1 : 0;
             } else if (e.raw == "pow") {
                 POP_VAR(b, "pow requires 2 parameters")
-                value = pow(a, b);
+                value = pow(b, a);
             } else if (e.raw == "log10") {
                 value = log10f(a);
             } else if (e.raw == "logN") {
@@ -407,6 +409,78 @@ double GDExpr::compute(godot::Dictionary map)
                 } else {
                     value = clerpf(f, e, (j - d - c - b) / a);
                 }
+            } else if (e.raw == "dot2") {
+                POP_VAR(b, "dot2 requires 4 parameters")
+                POP_VAR(c, "dot2 requires 4 parameters")
+                POP_VAR(d, "dot2 requires 4 parameters")
+                value = Vector2(d, c).dot(Vector2(b, a));
+            } else if (e.raw == "dot3") {
+                POP_VAR(b, "dot3 requires 6 parameters")
+                POP_VAR(c, "dot3 requires 6 parameters")
+                POP_VAR(d, "dot3 requires 6 parameters")
+                POP_VAR(e, "dot3 requires 6 parameters")
+                POP_VAR(f, "dot3 requires 6 parameters")
+                value = Vector3(f, e, d).dot(Vector3(c, b, a));
+            } else if (e.raw == "cross_x") {
+                POP_VAR(b, "cross_x requires 6 parameters")
+                POP_VAR(c, "cross_x requires 6 parameters")
+                POP_VAR(d, "cross_x requires 6 parameters")
+                POP_VAR(e, "cross_x requires 6 parameters")
+                POP_VAR(f, "cross_x requires 6 parameters")
+                value = Vector3(f, e, d).cross(Vector3(c, b, a)).x;
+            } else if (e.raw == "cross_y") {
+                POP_VAR(b, "cross_y requires 6 parameters")
+                POP_VAR(c, "cross_y requires 6 parameters")
+                POP_VAR(d, "cross_y requires 6 parameters")
+                POP_VAR(e, "cross_y requires 6 parameters")
+                POP_VAR(f, "cross_y requires 6 parameters")
+                value = Vector3(f, e, d).cross(Vector3(c, b, a)).y;
+            } else if (e.raw == "cross_z") {
+                POP_VAR(b, "cross_z requires 6 parameters")
+                POP_VAR(c, "cross_z requires 6 parameters")
+                POP_VAR(d, "cross_z requires 6 parameters")
+                POP_VAR(e, "cross_z requires 6 parameters")
+                POP_VAR(f, "cross_z requires 6 parameters")
+                value = Vector3(f, e, d).cross(Vector3(c, b, a)).z;
+            } else if (e.raw == "proj_x") {
+                POP_VAR(b, "proj_x requires 6 parameters")
+                POP_VAR(c, "proj_x requires 6 parameters")
+                POP_VAR(d, "proj_x requires 6 parameters")
+                POP_VAR(e, "proj_x requires 6 parameters")
+                POP_VAR(f, "proj_x requires 6 parameters")
+                auto n = Vector3(f, e, d).normalized();
+                auto v = Vector3(c, b, a);
+                value = (v - v.dot(n) * n).x;
+            } else if (e.raw == "proj_y") {
+                POP_VAR(b, "proj_y requires 6 parameters")
+                POP_VAR(c, "proj_y requires 6 parameters")
+                POP_VAR(d, "proj_y requires 6 parameters")
+                POP_VAR(e, "proj_y requires 6 parameters")
+                POP_VAR(f, "proj_y requires 6 parameters")
+                auto n = Vector3(f, e, d).normalized();
+                auto v = Vector3(c, b, a);
+                value = (v - v.dot(n) * n).y;
+            } else if (e.raw == "proj_z") {
+                POP_VAR(b, "proj_z requires 6 parameters")
+                POP_VAR(c, "proj_z requires 6 parameters")
+                POP_VAR(d, "proj_z requires 6 parameters")
+                POP_VAR(e, "proj_z requires 6 parameters")
+                POP_VAR(f, "proj_z requires 6 parameters")
+                auto n = Vector3(f, e, d).normalized();
+                auto v = Vector3(c, b, a);
+                value = (v - v.dot(n) * n).z;
+            } else if (e.raw == "unit_x") {
+                POP_VAR(b, "unit_x requires 6 parameters")
+                POP_VAR(c, "unit_x requires 6 parameters")
+                value = Vector3(c, b, a).normalized().x;
+            } else if (e.raw == "unit_y") {
+                POP_VAR(b, "unit_y requires 6 parameters")
+                POP_VAR(c, "unit_y requires 6 parameters")
+                value = Vector3(c, b, a).normalized().y;
+            } else if (e.raw == "unit_z") {
+                POP_VAR(b, "unit_z requires 6 parameters")
+                POP_VAR(c, "unit_z requires 6 parameters")
+                value = Vector3(c, b, a).normalized().z;
             }
             if (std::isnan(value)) {
                 value = 0.0;

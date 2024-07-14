@@ -16,7 +16,7 @@ void GDExpr::_bind_methods()
     ClassDB::bind_method(D_METHOD("copy_from", "expr"), &GDExpr::copy_from);
 
     ClassDB::bind_method(D_METHOD("build", "expression"), &GDExpr::build);
-    ClassDB::bind_method(D_METHOD("compute", "variables"), &GDExpr::compute);
+    ClassDB::bind_method(D_METHOD("compute", "variables", "user_funcs"), &GDExpr::compute);
     ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
 
     ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
@@ -64,9 +64,9 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
         auto token = tokens[i];
         i += 1;
 
-        if (token.kind == tkNUMBER || token.kind == tkVAR) {
+        if (token.kind == tkNUMBER) {
             expression.push_back(token);
-        } else if (token.kind == tkFUNC) {
+        } else if (token.kind == tkFUNC || token.kind == tkVAR) {
             operators.push_back(token);
         } else if (token.kind == tkOP) {
             if (operators.size() > 0) {
@@ -104,7 +104,7 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
                     return;
                 }
                 operators.pop_back();
-                if (operators.size() > 0 && operators.back().kind == tkFUNC) {
+                if (operators.size() > 0 && (operators.back().kind == tkFUNC || operators.back().kind == tkVAR)) {
                     auto op = operators.back();
                     operators.pop_back();
                     expression.push_back(op);
@@ -147,7 +147,7 @@ double clerpf(double a, double b, double t)
     return UtilityFunctions::lerpf(a, b, UtilityFunctions::clampf(t, 0.0, 1.0));
 }
 
-double GDExpr::compute(godot::Dictionary map)
+double GDExpr::compute(Dictionary map, Dictionary user_funcs)
 {
     // parameters are in reverse order. For example the first popped var is the last parameter:
     // f(..., z, ..., c, b, a)
@@ -175,8 +175,23 @@ double GDExpr::compute(godot::Dictionary map)
             }
             tape_index += 1;
         } else if (e.kind == tkVAR) {
-            float value = map.get(e.raw, 0.0);
-            // double value = map(e.raw.data(), 0.0);
+            float value = 0.0;
+            if (map.has(e.raw)) {
+                value = map.get(e.raw, 0.0);
+            } else if (user_funcs.has(e.raw)) {
+                auto func = (Dictionary)user_funcs[e.raw];
+                auto args = (PackedStringArray)func[String("args")];
+                auto expr = (GDExpr*)(Object*)func[String("expr")];
+                auto var_maps = Dictionary();
+                for (auto v : args) {
+                    POP_VAR(x, e.raw + " requires " + UtilityFunctions::str(args.size()) + " parameters")
+                    var_maps[v] = x;
+                }
+                value = expr->compute(var_maps, user_funcs);
+                if (std::isnan(value)) {
+                    value = 0.0;
+                }
+            }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
             } else {

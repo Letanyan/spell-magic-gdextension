@@ -30,7 +30,7 @@ public:
     void build_from_tokens(std::vector<GDToken> tokens);
     void build(String expr);
 
-    double compute(Dictionary map);
+    double compute(Dictionary map, Dictionary user_funcs);
 
     bool contains_variable(String var_name);
     static String bake(String expr, Dictionary map);

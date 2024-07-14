@@ -195,6 +195,9 @@ String godot::build_string_from_tokens(std::vector<GDToken> tokens)
 
 bool godot::gd_operator_precedes(GDToken op1, GDToken op2)
 {
+    if (op1.kind == tkVAR) {
+        return true;
+    }
     if ("^" == op1.raw && ("*" == op2.raw || "/" == op2.raw)) {
         return true;
     }

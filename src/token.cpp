@@ -35,7 +35,7 @@ bool is_func(godot::String name)
     if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
         return true;
     }
-    if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs") {
+    if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
         return true;
     }
     if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {

@@ -329,6 +329,14 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 value = log(a);
             } else if (e.raw == "abs") {
                 value = abs(a);
+            } else if (e.raw == "sqrt") {
+                value = sqrtf(a);
+            } else if (e.raw == "cbrt") {
+                value = powf(a, 1.0 / 3.0);
+            } else if (e.raw == "sqr") {
+                value = a * a;
+            } else if (e.raw == "cube") {
+                value = a * a * a;
             } else if (e.raw == "lerp") {
                 POP_VAR(b, "lerp requires 3 parameters")
                 POP_VAR(c, "lerp requires 3 parameters")

@@ -42,6 +42,7 @@ protected:
     static void _bind_methods();
 
     double sea_level;
+    bool is_underwater;
 
     GDNoiseBlender* blender;
     double chunk_size;
@@ -61,6 +62,7 @@ protected:
     NoiseTexture2D* water_noise;
     NoiseTexture2D* water_ripples_noise;
     NoiseTexture2D* noise_texture;
+    NoiseTexture2D* caustic_texture;
 
     PackedVector2Array loaded_chunks_location;
     TypedArray<Node3D> loaded_chunks;
@@ -90,6 +92,7 @@ public:
     void set_water_noise(NoiseTexture2D* water_noise);
     void set_water_ripples_noise(NoiseTexture2D* water_ripples_noise);
     void set_noise_texture(NoiseTexture2D* noise_texture);
+    void set_caustic_texture(NoiseTexture2D* caustic_texture);
     void set_sea_level(double level);
 
     TypedArray<Node3D> init_chunks_of_size(TypedArray<Node3D> chunks, TypedArray<Vector2> locations, double x, double y, double cs, double r, double subdivide, bool is_water);
@@ -106,7 +109,7 @@ public:
     void update_chunk_environment(Node3D* node);
     void place_grass(Vector2 delta);
     void init_grass();
-    void hide_water(float y);
+    void hide_water(float y, bool force_update);
     void set_player_coord_using_position(double x, double y, double cs);
     Vector2 convert_position_to_coord(double x, double y, double cs);
 

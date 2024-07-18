@@ -17,6 +17,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_water_noise", "water_noise"), &GDTerrain::set_water_noise);
     ClassDB::bind_method(D_METHOD("set_water_ripples_noise", "water_ripples_noise"), &GDTerrain::set_water_ripples_noise);
     ClassDB::bind_method(D_METHOD("set_noise_texture", "noise_texture"), &GDTerrain::set_noise_texture);
+    ClassDB::bind_method(D_METHOD("set_caustic_texture", "caustic_texture"), &GDTerrain::set_caustic_texture);
     ClassDB::bind_method(D_METHOD("set_sea_level", "level"), &GDTerrain::set_sea_level);
 
     ClassDB::bind_method(D_METHOD("init_chunks_of_size", "chunks", "locations", "x", "y", "cs", "r", "subdivide", "is_water"), &GDTerrain::init_chunks_of_size);
@@ -33,7 +34,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("update_chunk_environment", "node"), &GDTerrain::update_chunk_environment);
     ClassDB::bind_method(D_METHOD("place_grass", "delta"), &GDTerrain::place_grass);
     ClassDB::bind_method(D_METHOD("init_grass"), &GDTerrain::init_grass);
-    ClassDB::bind_method(D_METHOD("hide_water", "y"), &GDTerrain::hide_water);
+    ClassDB::bind_method(D_METHOD("hide_water", "y", "force_update"), &GDTerrain::hide_water);
     ClassDB::bind_method(D_METHOD("set_player_coord_using_position", "x", "y", "cs"), &GDTerrain::set_player_coord_using_position);
     ClassDB::bind_method(D_METHOD("convert_position_to_coord", "x", "y", "cs"), &GDTerrain::convert_position_to_coord);
 
@@ -84,6 +85,11 @@ void GDTerrain::set_water_ripples_noise(NoiseTexture2D* water_ripples_noise)
 void GDTerrain::set_noise_texture(NoiseTexture2D* noise_texture)
 {
     this->noise_texture = noise_texture;
+}
+
+void GDTerrain::set_caustic_texture(NoiseTexture2D* caustic_texture)
+{
+    this->caustic_texture = caustic_texture;
 }
 
 void GDTerrain::set_sea_level(double level)
@@ -385,6 +391,7 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
     mat->set_shader_parameter("biome_x", biome_x_texture);
     mat->set_shader_parameter("biome_y", biome_y_texture);
     mat->set_shader_parameter("noise", noise_texture);
+    mat->set_shader_parameter("caustic", caustic_texture);
     mat->set_shader_parameter("locations", blender->locations);
     // mat->set_shader_parameter("height", height_texture);
 }
@@ -534,15 +541,35 @@ void GDTerrain::init_grass()
     mm->set_visible_instance_count(i);
 }
 
-void GDTerrain::hide_water(float y)
+void GDTerrain::hide_water(float y, bool force_update)
 {
+    bool underwater_switched = false;
     if (y < sea_level - 1.5) {
-        for (size_t i = 0; i < water_chunks.size(); i++) {
-            ((Node3D*)(Object*)water_chunks[i])->set_visible(false);
+        if (!is_underwater) {
+            underwater_switched = true;
         }
+        is_underwater = true;
     } else {
+        if (is_underwater) {
+            underwater_switched = true;
+        }
+        is_underwater = false;
+    }
+    if (underwater_switched || force_update) {
         for (size_t i = 0; i < water_chunks.size(); i++) {
-            ((Node3D*)(Object*)water_chunks[i])->set_visible(true);
+            ((Node3D*)(Object*)water_chunks[i])->set_visible(!is_underwater);
+        }
+        for (size_t i = 0; i < loaded_chunks.size(); i++) {
+            auto mi = ((Node3D*)(Object*)loaded_chunks[i])->get_node<MeshInstance3D>("mesh");
+            auto mesh = (ArrayMesh*)*mi->get_mesh();
+            auto mat = (ShaderMaterial*)*mesh->surface_get_material(0);
+            mat->set_shader_parameter("underwater", is_underwater ? 1 : 0);
+        }
+        for (size_t i = 0; i < medium_chunks.size(); i++) {
+            auto mi = ((Node3D*)(Object*)medium_chunks[i])->get_node<MeshInstance3D>("mesh");
+            auto mesh = (ArrayMesh*)*mi->get_mesh();
+            auto mat = (ShaderMaterial*)*mesh->surface_get_material(0);
+            mat->set_shader_parameter("underwater", is_underwater ? 1 : 0);
         }
     }
 }

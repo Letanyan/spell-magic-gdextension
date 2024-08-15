@@ -62,7 +62,6 @@ protected:
     NoiseTexture2D* water_noise;
     NoiseTexture2D* water_ripples_noise;
     NoiseTexture2D* noise_texture;
-    NoiseTexture2D* caustic_texture;
 
     PackedVector2Array loaded_chunks_location;
     TypedArray<Node3D> loaded_chunks;
@@ -92,7 +91,6 @@ public:
     void set_water_noise(NoiseTexture2D* water_noise);
     void set_water_ripples_noise(NoiseTexture2D* water_ripples_noise);
     void set_noise_texture(NoiseTexture2D* noise_texture);
-    void set_caustic_texture(NoiseTexture2D* caustic_texture);
     void set_sea_level(double level);
 
     TypedArray<Node3D> init_chunks_of_size(TypedArray<Node3D> chunks, TypedArray<Vector2> locations, double x, double y, double cs, double r, double subdivide, bool is_water);

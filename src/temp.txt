@@ -1,13 +1,44 @@
 
-x: s64 = 0
+// This is a comment
+
+x: s64 = 1 + 2 * -(5 - 2)
 
 f: (x: s64) -> s64 = (x: s64) -> s64 {
     return x * x
 }
 
-y := f(x)
+struct Stride {
+    start, end, step: int
+}
 
-if y case 0 {
+stride := (from start: int, to end: int, by step: int = 1) -> Stride {
+    return .{start, end, step}
+}
+
+y := f x
+r := stride from: 0 to: 10 by: 1
+
+matchx := #macro (value: $T, case..., cond: T, code: () -> $R, else, else_code: () -> R) -> R {
+    for i in range.{0, cond.count} {
+        if cond[i] == value {
+            return code[i]()
+        }
+    }
+    return else_code()
+}
+
+match := #macro (value: $T, case..., cond: T, code: () -> (), else, else_code: () -> () = {}) {
+    for i in range.{0, cond.count} {
+        if cond[i] == value {
+            code[i]()
+            return
+        }
+    }
+    else_code()
+}
+
+
+match y case 0 {
     print("zero")
 } case 1 {
     print("one")
@@ -15,6 +46,16 @@ if y case 0 {
     print("two")
 } else {
     print("number")
+}
+
+if := #macro (cond: bool, then: () -> (), else, else: () -> () = {}) {
+jmpif cond @true @false
+@true
+    then()
+    jmp @done
+@false
+    else()
+@done
 }
 
 if y % 2 == 0 {
@@ -52,7 +93,7 @@ for := #macro (xs: range($T), body: Code) {
     #insert body
     if it < xs.max {
         it += 1
-        jump loop
+        jmp @loop
     }
 }
 
@@ -71,11 +112,11 @@ for := #macro (xs: []$T, body: Code) {
     if i < xs.size {
         i += 1
         it = xs[i]
-        jump loop
+        jmp @loop
     }
 }
 
-for i, x in [1, 2, 3, 4] {
+for i, x in array.init(1, 2, 3, 4) {
 
 }
 
@@ -96,7 +137,7 @@ for := #macro (xs: dyn_array($T), body: Code) {
     if i < xs.size {
         i += 1
         it = xs.ptr[i]
-        jump loop
+        jmp @loop
     }
 }
 

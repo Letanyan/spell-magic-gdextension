@@ -199,6 +199,37 @@ float axial_dependant_distance(Vector2 a, Vector2 b)
     return abs(a.x - b.x) * axial_weight + abs(a.y - b.y);
 }
 
+Vector3 oklab_mix(Vector3 colA, Vector3 colB, float h)
+{
+    // https://bottosson.github.io/posts/oklab
+    const Basis kCONEtoLMS = Basis(
+        Vector3(0.4121656120, 0.2118591070, 0.0883097947),
+        Vector3(0.5362752080, 0.6807189584, 0.2818474174),
+        Vector3(0.0514575653, 0.1074065790, 0.6302613616));
+    const Basis kLMStoCONE = Basis(
+        Vector3(4.0767245293, -1.2681437731, -0.0041119885),
+        Vector3(-3.3072168827, 2.6093323231, -0.7034763098),
+        Vector3(0.2307590544, -0.3411344290, 1.7068625689));
+
+    // rgb to cone (arg of pow can't be negative)
+    // Vector3 lmsA = pow( kCONEtoLMS.xform(colA), Vector3(1.0/3.0) );
+    // Vector3 lmsB = pow( kCONEtoLMS.xform(colB), Vector3(1.0/3.0) );
+    Vector3 lmsA = kCONEtoLMS.xform(colA);
+    Vector3 lmsB = kCONEtoLMS.xform(colB);
+    lmsA.x = powf(lmsA.x, 1.0 / 3.0);
+    lmsA.y = powf(lmsA.y, 1.0 / 3.0);
+    lmsA.z = powf(lmsA.z, 1.0 / 3.0);
+    lmsB.x = powf(lmsB.x, 1.0 / 3.0);
+    lmsB.y = powf(lmsB.y, 1.0 / 3.0);
+    lmsB.z = powf(lmsB.z, 1.0 / 3.0);
+    // lerp
+    Vector3 lms = lmsA.lerp(lmsB, h);
+    // gain in the middle (no oaklab anymore, but looks better?)
+    // lms *= 1.0+0.2*h*(1.0-h);
+    // cone to rgb
+    return kLMStoCONE.xform(lms * lms * lms);
+}
+
 void GDNoiseBlender::compute_biome_stats(double x, double y)
 {
     double X = UtilityFunctions::snappedf(x, 0.0001);
@@ -218,7 +249,8 @@ void GDNoiseBlender::compute_biome_stats(double x, double y)
         distances[i] = dist;
         total_distance += dist;
         if (dist <= (axial_weight + 1.0)) {
-            c = Vector3(1, 1, 1).lerp(colors[i], powf(1.0 - dist / (axial_weight + 1.0), 3.0));
+            float mix_alpha = pow(1.0 - dist / (axial_weight + 1.0), 3.0);
+            c = oklab_mix(Vector3(1, 1, 1), colors[i], mix_alpha);
             clr = clr * c;
         }
         if (dist < min_distance) {

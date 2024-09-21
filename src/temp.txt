@@ -157,4 +157,66 @@ repeat := #macro (n: s64, body: Code) {
 repeat(10, { print(`it) })
 
 
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
+macro 'func' name:Identifier (args:Type)... '->' returnType:Type code: () -> returnType {
+    #if #is_arch_x86_64 {
+        label #mangle_name(#module, #file, name, args, returnType)
+        
+        ret
+    } else if #is_arch_x86 {
+
+    } else if #is_arch_arm64 {
+
+    }
+}
+
+func stride from:int to:int by:int -> Stride {
+
+}
+
+macro 'if' condition:bool block: () -> () {
+
+}
+
+macro 'if' condition:bool block: () -> () 'else' else: () -> () {
+
+}
+
+macro 'ifx' condition:bool block: () -> $R 'else' else: () -> R {
+
+}
+
+macro 'while' condition:bool block: () -> $R {
+
+} 
+
+macro 'for' id:Identifier seq:$S block: () -> () {
+
+}
+
+macro 'for' seq:$S block: () -> () {
+
+}
+
+macro 'repeat' block: () -> () 'while' condition: bool {
+
+}
+
+macro 'switch' value:$T ('case' case:ConditionalBlock<T>)... {
+
+}
+
+type Person name:String age:int
+
+var x int 5
+var person Person "First name, Last name" 0
+
+var list Array(int).init ()
+get list 0
+var x get list 0
+
 

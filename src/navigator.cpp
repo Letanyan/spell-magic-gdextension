@@ -367,7 +367,7 @@ PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, i
         if (options & MovementOptions::CAN_FLY == 0) {
             to.y = get_world_height_from_node(p, to.x, to.z) + shape_height(shape) / 2.0 + 0.05;
         }
-        to.snap(Vector3(distance, distance, distance));
+        to.snap(Vector3(distance, (options & MovementOptions::CAN_FLY != 0) ? distance : 0.00001, distance));
         auto distance_away = get_shape_distance_away(p, from, to, shape, (options & MovementOptions::UNDERGROUND) != 0);
         if (distance_away[0] == 1.0 && distance_away[1] == 1.0) {
             result.append(to);

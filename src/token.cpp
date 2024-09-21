@@ -23,7 +23,7 @@ GDToken::~GDToken()
 
 bool is_func(godot::String name)
 {
-    if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan") {
+    if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan" || name == "atan2") {
         return true;
     }
     if (name == "sinh" || name == "cosh" || name == "tanh" || name == "asinh" || name == "acosh" || name == "atanh") {
@@ -41,6 +41,11 @@ bool is_func(godot::String name)
     if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {
         return true;
     }
+    // segments work as follows f(a, b1, b2, ..., bn, c1, c2, ..., cn-1).
+    // a is the time parameter. b1...bn are the values to interpolate between
+    // c1...cn-1 are the durations between each b-pair values. For example
+    // f(a, b1, b2, c1) = f(2, 100, 250, 10) = lerp(a/c1, b1, b2) = lerp(2/10, 100, 250)
+    // f(a, b1, b2, b3, c1, c2) = f(2, 100, 250, 50, 1, 4) = lerp((a-c1)/c2, b2, b3) = lerp((2-1)/4 250, 50)
     if (name == "segment2" || name == "segment3" || name == "segment4" || name == "segment5") {
         return true;
     }

@@ -282,6 +282,9 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 value = acos(a);
             } else if (e.raw == "atan") {
                 value = atan(a);
+            } else if (e.raw == "atan2") {
+                POP_VAR(b, "mod requires 2 parameters")
+                value = atan2(b, a);
             } else if (e.raw == "asinh") {
                 value = asinh(a);
             } else if (e.raw == "acosh") {

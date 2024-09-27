@@ -57,8 +57,10 @@ void GDExpr::build(godot::String expr)
 void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
 {
     error = "";
-    expression = std::vector<GDToken>(tokens.size());
-    auto operators = std::vector<GDToken>(tokens.size());
+    expression = std::vector<GDToken>();
+    expression.reserve(tokens.size());
+    auto operators = std::vector<GDToken>();
+    operators.reserve(tokens.size());
     int i = 0;
     while (i < tokens.size()) {
         auto token = tokens[i];
@@ -142,7 +144,7 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
     }
 }
 
-double clerpf(double a, double b, double t)
+double godot::clerpf(double a, double b, double t)
 {
     return UtilityFunctions::lerpf(a, b, UtilityFunctions::clampf(t, 0.0, 1.0));
 }
@@ -151,6 +153,7 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
 {
     // parameters are in reverse order. For example the first popped var is the last parameter:
     // f(..., z, ..., c, b, a)
+#undef POP_VAR
 #define POP_VAR(name, error_message) \
     tape_index -= 1;                 \
     if (tape_index < 0) {            \
@@ -159,7 +162,8 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
     }                                \
     auto name = tape[tape_index];
 
-    auto tape = std::vector<float>(8);
+    auto tape = std::vector<float>();
+    tape.reserve(8);
     long long tape_index = 0;
     for (auto& e : expression) {
         if (e.kind == tkERROR) {
@@ -284,7 +288,7 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 value = atan(a);
             } else if (e.raw == "atan2") {
                 POP_VAR(b, "mod requires 2 parameters")
-                value = atan2(b, a);
+                value = atan2(a, b);
             } else if (e.raw == "asinh") {
                 value = asinh(a);
             } else if (e.raw == "acosh") {
@@ -312,17 +316,25 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(b, "min requires 2 parameters")
                 value = a < b ? a : b;
             } else if (e.raw == "lt") {
-                value = a < 0 ? 1 : 0;
+                POP_VAR(b, "lt requires 2 parameters")
+                value = b < a ? 1 : 0;
             } else if (e.raw == "gt") {
-                value = a > 0 ? 1 : 0;
+                POP_VAR(b, "gt requires 2 parameters")
+                value = b > a ? 1 : 0;
             } else if (e.raw == "lte") {
-                value = a <= 0 ? 1 : 0;
+                POP_VAR(b, "lte requires 2 parameters")
+                value = b <= a ? 1 : 0;
             } else if (e.raw == "gte") {
-                value = a >= 0 ? 1 : 0;
+                POP_VAR(b, "gte requires 2 parameters")
+                value = b >= a ? 1 : 0;
             } else if (e.raw == "eq") {
-                value = a == 0 ? 1 : 0;
+                POP_VAR(b, "eq requires 2 parameters")
+                value = a == b ? 1 : 0;
             } else if (e.raw == "neq") {
-                value = a != 0 ? 1 : 0;
+                POP_VAR(b, "neq requires 2 parameters")
+                value = a != b ? 1 : 0;
+            } else if (e.raw == "not") {
+                value = a == 1 ? 0 : 1;
             } else if (e.raw == "pow") {
                 POP_VAR(b, "pow requires 2 parameters")
                 value = pow(b, a);
@@ -559,9 +571,9 @@ void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result,
     auto buffer = std::vector<GDToken>();
     for (auto& e : tokens) {
         if (e.kind == tkVAR) {
-            String sub_expr = map.get(e.raw, "");
+            String sub_expr = String(map.get(e.raw, ""));
             if (sub_expr.length() > 0) {
-                auto sub_tokens = godot::tokenize(sub_expr);
+                auto sub_tokens = godot::tokenize("(" + sub_expr + ")");
                 if (vector_contains_string(chain, e.raw)) {
                     result->push_back(GDToken(tkNUMBER, "0"));
                 } else {
@@ -576,28 +588,20 @@ void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result,
             buffer.push_back(e);
         }
     }
-    bool wrap = chain->size() > 1 && (buffer.size() > 1 && !((buffer[0].kind == tkFUNC || buffer[0].kind == tkOPEN) && buffer.back().kind == tkCLOSE));
-    if (wrap) {
-        result->push_back(GDToken(tkOPEN, "("));
-        for (auto& e : buffer) {
-            result->push_back(e);
-        }
-        result->push_back(GDToken(tkCLOSE, ")"));
-    } else {
-        for (auto& e : buffer) {
-            result->push_back(e);
-        }
+    for (auto& e : buffer) {
+        result->push_back(e);
     }
 }
 
 String GDExpr::bake(String expr, Dictionary map)
 {
-    auto tokens = godot::tokenize(expr);
+    auto tokens = tokenize(expr);
     auto output = std::vector<GDToken>();
     auto chain = std::vector<String>();
     bake_into_vector(tokens, &output, map, &chain);
-    return godot::optimize(output);
-    // return godot::build_string_from_tokens(output);
+    auto e = GDExpr();
+    e.build_from_tokens(output);
+    return godot::constant_folding(e.expression, map);
 }
 
 void GDExpr::copy_from(GDExpr* expr)

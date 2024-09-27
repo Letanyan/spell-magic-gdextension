@@ -206,7 +206,7 @@ macro 'repeat' block: () -> () 'while' condition: bool {
 
 }
 
-macro 'switch' value:$T ('case' case:ConditionalBlock<T>)... {
+macro 'switch' value:$T ('case' condition:T block: () -> ())... {
 
 }
 
@@ -215,7 +215,7 @@ type Person name:String age:int
 var x int 5
 var person Person "First name, Last name" 0
 
-var list Array(int).init ()
+var list init Array int
 get list 0
 var x get list 0
 

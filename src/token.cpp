@@ -32,7 +32,7 @@ bool is_func(godot::String name)
     if (name == "inv" || name == "mod" || name == "div" || name == "floor" || name == "ceil" || name == "round") {
         return true;
     }
-    if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
+    if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq" || name == "not") {
         return true;
     }
     if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
@@ -58,6 +58,47 @@ bool is_func(godot::String name)
     return false;
 }
 
+int godot::number_of_func_arguments(godot::String name)
+{
+    if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan") {
+        return 1;
+    }
+    if (name == "sinh" || name == "cosh" || name == "tanh" || name == "asinh" || name == "acosh" || name == "atanh") {
+        return 1;
+    }
+    if (name == "inv" || name == "floor" || name == "ceil" || name == "round" || name == "not" || name == "log10" || name == "logN") {
+        return 1;
+    }
+    if (name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
+        return 1;
+    }
+    if (name == "atan2" || name == "mod" || name == "div" || name == "pow") {
+        return 2;
+    }
+    if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
+        return 2;
+    }
+    if (name == "if" || name == "clamp" || name == "lerp" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
+        return 3;
+    }
+    if (name == "quad" || name == "segment2" || name == "dot2") {
+        return 4;
+    }
+    if (name == "cubic") {
+        return 5;
+    }
+    if (name == "segment3" || name == "dot3" || name == "cross_x" || name == "cross_y" || name == "cross_z" || name == "proj_x" || name == "proj_y" || name == "proj_z") {
+        return 6;
+    }
+    if (name == "segment4") {
+        return 8;
+    }
+    if (name == "segment5") {
+        return 10;
+    }
+    return 0;
+}
+
 bool __is_alpha__(char c)
 {
     return isalpha(c) || c == '_';
@@ -81,7 +122,8 @@ bool __is_op__(char c)
 std::vector<GDToken> godot::tokenize(godot::String expr)
 {
     GDTokenKind state = tkNONE;
-    auto result = std::vector<GDToken>(8);
+    auto result = std::vector<GDToken>();
+    result.reserve(8);
 
     bool last_was_op = true;
     godot::String current = "";

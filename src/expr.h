@@ -38,6 +38,8 @@ public:
     void copy_from(GDExpr* expr);
 };
 
+double clerpf(double a, double b, double t);
+
 }
 
 #endif

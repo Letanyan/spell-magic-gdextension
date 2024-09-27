@@ -1,4 +1,5 @@
 #include "expr_optimizer.h"
+#include "expr.h"
 #include "token.h"
 #include <math.h>
 
@@ -307,4 +308,566 @@ String godot::optimize(std::vector<GDToken> tokens)
     String result = tree->format_as_expression();
     delete tree;
     return result;
+}
+
+String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
+{
+    // parameters are in reverse order. For example the first popped var is the last parameter:
+    // f(..., z, ..., c, b, a)
+#undef POP_VAR
+#define POP_VAR(name, error_message) \
+    tape_index -= 1;                 \
+    if (tape_index < 0) {            \
+        return String("");           \
+    }                                \
+    auto name = tape[tape_index];
+
+#undef PUSH_VAR
+#define PUSH_VAR(name)               \
+    if (tape_index == tape.size()) { \
+        tape.push_back(name);        \
+    } else {                         \
+        tape[tape_index] = name;     \
+    }                                \
+    tape_index += 1;
+
+    auto tape = std::vector<GDToken>();
+    tape.reserve(8);
+    long long tape_index = 0;
+    for (auto& e : expression) {
+        if (e.kind == tkERROR) {
+            return String("");
+        }
+
+        if (e.kind == tkNUMBER) {
+            PUSH_VAR(e)
+        } else if (e.kind == tkVAR) {
+            GDToken value = GDToken();
+            if (map.has(e.raw)) {
+                value.raw = UtilityFunctions::str(map.get(e.raw, "0"));
+                value.kind = tkNUMBER;
+            } else {
+                value = e;
+            }
+            PUSH_VAR(value)
+        } else if (e.kind == tkOP) {
+            POP_VAR(b, "OP: Incomplete Expression: " + e.raw)
+            POP_VAR(a, "OP: Incomplete Expression: " + e.raw)
+            auto value = GDToken();
+            if (a.kind == tkNUMBER && b.kind == tkNUMBER) {
+                double temp = 0.0;
+                if (e.raw == "+") {
+                    temp = a.raw.to_float() + b.raw.to_float();
+                } else if (e.raw == "-") {
+                    temp = a.raw.to_float() - b.raw.to_float();
+                } else if (e.raw == "*") {
+                    temp = a.raw.to_float() * b.raw.to_float();
+                } else if (e.raw == "/") {
+                    if (b.raw.to_float() == 0.0) {
+                        temp = 0.0;
+                    } else {
+                        temp = a.raw.to_float() / b.raw.to_float();
+                    }
+                } else if (e.raw == "^") {
+                    temp = pow(a.raw.to_float(), b.raw.to_float());
+                }
+                if (std::isnan(temp)) {
+                    value.raw = String("0");
+                } else {
+                    value.raw = UtilityFunctions::str(temp);
+                }
+                value.kind = tkNUMBER;
+                UtilityFunctions::print("push --> ", value.raw);
+                PUSH_VAR(value)
+            } else {
+                PUSH_VAR(a)
+                PUSH_VAR(b)
+                PUSH_VAR(e)
+            }
+        } else if (e.kind == tkPREFIX_OP) {
+            POP_VAR(a, "Incomplete Expression")
+            if (a.kind == tkNUMBER) {
+                double temp = a.raw.to_float();
+                auto value = GDToken();
+                if (e.raw == "-") {
+                    temp = -temp;
+                }
+                if (std::isnan(temp)) {
+                    value.raw = String("0");
+                } else {
+                    value.raw = UtilityFunctions::str(temp);
+                }
+                value.kind = tkNUMBER;
+                PUSH_VAR(value)
+            } else {
+                PUSH_VAR(a)
+                PUSH_VAR(e)
+            }
+        } else if (e.kind == tkFUNC) {
+            int arg_count = godot::number_of_func_arguments(e.raw);
+
+            switch (arg_count) {
+            case 0: {
+                PUSH_VAR(e)
+            } break;
+
+            case 1: {
+                POP_VAR(tok_a, e.raw + " requires at least 1 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    if (e.raw == "sin") {
+                        temp = sin(a);
+                    } else if (e.raw == "cos") {
+                        temp = cos(a);
+                    } else if (e.raw == "tan") {
+                        temp = tan(a);
+                    } else if (e.raw == "sinh") {
+                        temp = sinh(a);
+                    } else if (e.raw == "cosh") {
+                        temp = cosh(a);
+                    } else if (e.raw == "tanh") {
+                        temp = tanh(a);
+                    } else if (e.raw == "asin") {
+                        temp = asin(a);
+                    } else if (e.raw == "acos") {
+                        temp = acos(a);
+                    } else if (e.raw == "atan") {
+                        temp = atan(a);
+                    } else if (e.raw == "asinh") {
+                        temp = asinh(a);
+                    } else if (e.raw == "acosh") {
+                        temp = acosh(a);
+                    } else if (e.raw == "atanh") {
+                        temp = atanh(a);
+                    } else if (e.raw == "inv") {
+                        temp = a != 0 ? (1 / a) : 0;
+                    } else if (e.raw == "floor") {
+                        temp = floor(a);
+                    } else if (e.raw == "ceil") {
+                        temp = ceil(a);
+                    } else if (e.raw == "round") {
+                        temp = round(a);
+                    } else if (e.raw == "not") {
+                        temp = a == 1 ? 0 : 1;
+                    } else if (e.raw == "log10") {
+                        temp = log10f(a);
+                    } else if (e.raw == "logN") {
+                        temp = log(a);
+                    } else if (e.raw == "abs") {
+                        temp = abs(a);
+                    } else if (e.raw == "sqrt") {
+                        temp = sqrtf(a);
+                    } else if (e.raw == "cbrt") {
+                        temp = powf(a, 1.0 / 3.0);
+                    } else if (e.raw == "sqr") {
+                        temp = a * a;
+                    } else if (e.raw == "cube") {
+                        temp = a * a * a;
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 2: {
+                POP_VAR(tok_a, e.raw + " requires at least 2 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 2 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    if (e.raw == "mod") {
+                        temp = a != 0 ? fmod(b, a) : 0;
+                    } else if (e.raw == "div") {
+                        temp = a != 0 ? floor(b / a) : 0;
+                    } else if (e.raw == "max") {
+                        temp = a < b ? b : a;
+                    } else if (e.raw == "min") {
+                        temp = a < b ? a : b;
+                    } else if (e.raw == "lt") {
+                        temp = b < a ? 1 : 0;
+                    } else if (e.raw == "gt") {
+                        temp = b > a ? 1 : 0;
+                    } else if (e.raw == "lte") {
+                        temp = b <= a ? 1 : 0;
+                    } else if (e.raw == "gte") {
+                        temp = b >= a ? 1 : 0;
+                    } else if (e.raw == "eq") {
+                        temp = a == b ? 1 : 0;
+                    } else if (e.raw == "neq") {
+                        temp = a != b ? 1 : 0;
+                    } else if (e.raw == "pow") {
+                        temp = pow(b, a);
+                    } else if (e.raw == "atan2") {
+                        temp = atan2(a, b);
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 3: {
+                POP_VAR(tok_a, e.raw + " requires at least 3 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 3 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 3 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    if (e.raw == "lerp") {
+                        temp = UtilityFunctions::lerpf(b, a, c);
+                    } else if (e.raw == "if") {
+                        temp = c != 0.0 ? b : a;
+                    } else if (e.raw == "clamp") {
+                        if (c < b) {
+                            temp = b;
+                        } else if (c > a) {
+                            temp = a;
+                        } else {
+                            temp = c;
+                        }
+                    } else if (e.raw == "unit_x") {
+                        temp = Vector3(c, b, a).normalized().x;
+                    } else if (e.raw == "unit_y") {
+                        temp = Vector3(c, b, a).normalized().y;
+                    } else if (e.raw == "unit_z") {
+                        temp = Vector3(c, b, a).normalized().z;
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 4: {
+                POP_VAR(tok_a, e.raw + " requires at least 4 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 4 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 4 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 4 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    if (e.raw == "quad") {
+                        float x1 = UtilityFunctions::lerpf(c, b, d);
+                        float x2 = UtilityFunctions::lerpf(b, a, d);
+                        temp = UtilityFunctions::lerpf(x1, x2, d);
+                    } else if (e.raw == "segment2") {
+                        temp = clerpf(b, c, d / a);
+                    } else if (e.raw == "dot2") {
+                        temp = Vector2(d, c).dot(Vector2(b, a));
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+
+            } break;
+
+            case 5: {
+                POP_VAR(tok_a, e.raw + " requires at least 5 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 5 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 5 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 5 parameter")
+                POP_VAR(tok_e, e.raw + " requires at least 5 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER && tok_e.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    double _e = tok_e.raw.to_float();
+                    if (e.raw == "cubic") {
+                        float x1 = UtilityFunctions::lerpf(d, c, _e);
+                        float y1 = UtilityFunctions::lerpf(c, a, _e);
+                        float z1 = UtilityFunctions::lerpf(x1, y1, _e);
+                        float x2 = UtilityFunctions::lerpf(c, b, _e);
+                        float y2 = UtilityFunctions::lerpf(b, a, _e);
+                        float z2 = UtilityFunctions::lerpf(x2, y2, _e);
+                        temp = UtilityFunctions::lerpf(z1, z2, _e);
+                    }
+
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_e)
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 6: {
+                POP_VAR(tok_a, e.raw + " requires at least 6 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 6 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 6 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 6 parameter")
+                POP_VAR(tok_e, e.raw + " requires at least 6 parameter")
+                POP_VAR(tok_f, e.raw + " requires at least 6 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER && tok_e.kind == tkNUMBER && tok_f.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    double _e = tok_e.raw.to_float();
+                    double f = tok_f.raw.to_float();
+                    if (e.raw == "segment3") {
+                        // f=t, e d c, b=d1, a=d2
+                        if (f <= b) {
+                            temp = clerpf(_e, d, f / b);
+                        } else {
+                            temp = clerpf(d, c, (f - b) / a);
+                        }
+                    } else if (e.raw == "dot3") {
+                        temp = Vector3(f, _e, d).dot(Vector3(c, b, a));
+                    } else if (e.raw == "cross_x") {
+                        temp = Vector3(f, _e, d).cross(Vector3(c, b, a)).x;
+                    } else if (e.raw == "cross_y") {
+                        temp = Vector3(f, _e, d).cross(Vector3(c, b, a)).y;
+                    } else if (e.raw == "cross_z") {
+                        temp = Vector3(f, _e, d).cross(Vector3(c, b, a)).z;
+                    } else if (e.raw == "proj_x") {
+                        auto n = Vector3(f, _e, d).normalized();
+                        auto v = Vector3(c, b, a);
+                        temp = (v - v.dot(n) * n).x;
+                    } else if (e.raw == "proj_y") {
+                        auto n = Vector3(f, _e, d).normalized();
+                        auto v = Vector3(c, b, a);
+                        temp = (v - v.dot(n) * n).y;
+                    } else if (e.raw == "proj_z") {
+                        auto n = Vector3(f, _e, d).normalized();
+                        auto v = Vector3(c, b, a);
+                        temp = (v - v.dot(n) * n).z;
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_f)
+                    PUSH_VAR(tok_e)
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 8: {
+                POP_VAR(tok_a, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_e, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_f, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_g, e.raw + " requires at least 8 parameter")
+                POP_VAR(tok_h, e.raw + " requires at least 8 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER && tok_e.kind == tkNUMBER && tok_f.kind == tkNUMBER && tok_g.kind == tkNUMBER && tok_h.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    double _e = tok_e.raw.to_float();
+                    double f = tok_f.raw.to_float();
+                    double g = tok_g.raw.to_float();
+                    double h = tok_h.raw.to_float();
+                    if (e.raw == "segment4") {
+                        // h=t, g f e d, c=d1, b=d2, a=d3
+                        if (h <= c) {
+                            temp = clerpf(g, f, h / c);
+                        } else if (h <= c + b) {
+                            temp = clerpf(f, _e, (h - c) / b);
+                        } else {
+                            temp = clerpf(_e, d, (h - c - b) / a);
+                        }
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_h)
+                    PUSH_VAR(tok_g)
+                    PUSH_VAR(tok_f)
+                    PUSH_VAR(tok_e)
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
+            case 10: {
+                POP_VAR(tok_a, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_e, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_f, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_g, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_h, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_i, e.raw + " requires at least 10 parameter")
+                POP_VAR(tok_j, e.raw + " requires at least 10 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER && tok_e.kind == tkNUMBER && tok_f.kind == tkNUMBER && tok_g.kind == tkNUMBER && tok_h.kind == tkNUMBER && tok_i.kind == tkNUMBER && tok_j.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    double _e = tok_e.raw.to_float();
+                    double f = tok_f.raw.to_float();
+                    double g = tok_g.raw.to_float();
+                    double h = tok_h.raw.to_float();
+                    double i = tok_i.raw.to_float();
+                    double j = tok_j.raw.to_float();
+                    if (e.raw == "segment5") {
+                        // j=t, h i g f e, d=d1, c=d2, b=d3, a=d4
+                        if (j <= d) {
+                            temp = clerpf(h, i, j / d);
+                        } else if (j <= d + c) {
+                            temp = clerpf(i, g, (j - d) / c);
+                        } else if (j <= d + c + b) {
+                            temp = clerpf(g, f, (j - d - c) / b);
+                        } else {
+                            temp = clerpf(f, _e, (j - d - c - b) / a);
+                        }
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_j)
+                    PUSH_VAR(tok_i)
+                    PUSH_VAR(tok_h)
+                    PUSH_VAR(tok_g)
+                    PUSH_VAR(tok_f)
+                    PUSH_VAR(tok_e)
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+            }
+        }
+    }
+
+    if (tape.empty()) {
+        return String("");
+    }
+
+    tape_index -= 1;
+    if (tape_index < 0) {
+        return String("");
+    }
+
+    while (tape.size() > tape_index + 1) {
+        tape.pop_back();
+    }
+
+    return rpn_to_infix(tape);
+}
+
+String godot::rpn_to_infix(std::vector<GDToken> tokens)
+{
+    struct Sf {
+        int prec;
+        String expr;
+    };
+    auto stack = std::vector<Sf>();
+    for (auto tok : tokens) {
+        if (tok.kind == tkOP) {
+            if (stack.size() <= 1) {
+                return String("");
+            }
+            auto rhs = stack[stack.size() - 1];
+            stack.pop_back();
+            auto lhs = stack[stack.size() - 1];
+            auto tok_prec = godot::gd_operator_precedence(tok);
+            if (lhs.prec < tok_prec || (lhs.prec == tok_prec && godot::gd_operator_is_right_associative(tok))) {
+                lhs.expr = String("(") + lhs.expr + String(")");
+                lhs.prec = 1000;
+            }
+            lhs.expr += " " + tok.raw + " ";
+            if (rhs.prec < tok_prec || (rhs.prec == tok_prec && !godot::gd_operator_is_right_associative(tok))) {
+                lhs.expr += String("(") + rhs.expr + String(")");
+                lhs.prec = 1000;
+            } else {
+                lhs.expr += rhs.expr;
+                lhs.prec = tok_prec;
+            }
+            stack[stack.size() - 1] = lhs;
+        } else if (tok.kind == tkPREFIX_OP) {
+            if (stack.size() <= 0) {
+                return String("");
+            }
+            auto rhs = stack[stack.size() - 1];
+            if (rhs.prec < 1000) {
+                rhs.expr = "-(" + rhs.expr + ")";
+            } else {
+                rhs.expr = "-" + rhs.expr;
+            }
+            rhs.prec = 1000;
+            stack[stack.size() - 1] = rhs;
+        } else if (tok.kind == tkFUNC) {
+            int arg_count = godot::number_of_func_arguments(tok.raw);
+            if (stack.size() < arg_count) {
+                return String("");
+            }
+            auto minor_stack = std::vector<Sf>();
+            minor_stack.reserve(arg_count);
+            String minor_result = tok.raw + "(";
+            int i = 0;
+            while (i < arg_count) {
+                auto arg = stack[stack.size() - arg_count + i];
+                if (i < arg_count - 1) {
+                    minor_result += arg.expr + ", ";
+                } else {
+                    minor_result += arg.expr + ")";
+                }
+                i += 1;
+            }
+            i = 0;
+            while (i < arg_count) {
+                stack.pop_back();
+                i += 1;
+            }
+            Sf n;
+            n.prec = 1000;
+            n.expr = minor_result;
+            stack.push_back(n);
+        } else {
+            Sf n;
+            n.prec = 1000;
+            n.expr = tok.raw;
+            stack.push_back(n);
+        }
+    }
+    if (stack.size() > 0) {
+        return stack[0].expr;
+    } else {
+        return String("");
+    }
 }

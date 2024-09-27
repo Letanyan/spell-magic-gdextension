@@ -28,6 +28,9 @@ GDExprTree* parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens, int& 
 GDExprTree* parse_binary_tree(GDToken op, GDExprTree* left, std::vector<GDToken> tokens, int& cursor);
 GDExprTree* parse_expr_tree(std::vector<GDToken> tokens, int& cursor, int min_prec);
 String optimize(std::vector<GDToken> tokens);
+
+String constant_folding(std::vector<GDToken> expression, Dictionary map);
+String rpn_to_infix(std::vector<GDToken> tokens);
 }
 
 #endif

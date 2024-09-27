@@ -230,6 +230,39 @@ Vector3 oklab_mix(Vector3 colA, Vector3 colB, float h)
     return kLMStoCONE.xform(lms * lms * lms);
 }
 
+float step(float a, float b)
+{
+    return b < a ? 0.0 : 1.0;
+}
+
+Vector3 rgb2hsv(Vector3 c)
+{
+    Vector4 K = Vector4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    Vector4 p = Vector4(c.y, c.z, K.w, K.z).lerp(Vector4(c.y, c.z, K.x, K.y), step(c.z, c.y));
+    Vector4 q = Vector4(p.x, p.y, p.w, c.x).lerp(Vector4(c.x, p.y, p.z, p.x), step(p.x, c.x));
+
+    float d = q.x - UtilityFunctions::minf(q.w, q.y);
+    float e = 1.0e-10;
+    return Vector3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+Vector3 fract(Vector3 v)
+{
+    return v - Vector3(UtilityFunctions::floorf(v.x), UtilityFunctions::floorf(v.y), UtilityFunctions::floorf(v.z));
+}
+
+Vector3 abs(Vector3 v)
+{
+    return Vector3(UtilityFunctions::abs(v.x), UtilityFunctions::abs(v.y), UtilityFunctions::abs(v.z));
+}
+
+Vector3 hsv2rgb(Vector3 c)
+{
+    Vector4 K = Vector4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    Vector3 p = abs(fract(Vector3(c.x, c.x, c.x) + Vector3(K.x, K.y, K.z)) * 6.0 - Vector3(K.w, K.w, K.w));
+    return c.z * Vector3(K.x, K.x, K.x).lerp((p - Vector3(K.x, K.x, K.x)).clamp(Vector3(0, 0, 0), Vector3(1, 1, 1)), c.y);
+}
+
 void GDNoiseBlender::compute_biome_stats(double x, double y)
 {
     double X = UtilityFunctions::snappedf(x, 0.0001);
@@ -259,7 +292,12 @@ void GDNoiseBlender::compute_biome_stats(double x, double y)
         }
     }
     biome = pos;
-    color = Color(clr.x, clr.y, clr.z);
+
+    Vector3 temp_color = rgb2hsv(Vector3(clr.x, clr.y, clr.z));
+    temp_color.z = 1.0 - pow(1.0 - temp_color.z, 2.0);
+    temp_color = hsv2rgb(temp_color);
+
+    color = Color(temp_color.x, temp_color.y, temp_color.z);
 }
 
 void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, double h, double scale)

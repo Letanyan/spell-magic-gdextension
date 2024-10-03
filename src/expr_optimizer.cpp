@@ -675,6 +675,43 @@ String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
                 }
             } break;
 
+            case 7: {
+                POP_VAR(tok_a, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_b, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_c, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_d, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_e, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_f, e.raw + " requires at least 7 parameter")
+                POP_VAR(tok_g, e.raw + " requires at least 7 parameter")
+                double temp = 0.0;
+                if (tok_a.kind == tkNUMBER && tok_b.kind == tkNUMBER && tok_c.kind == tkNUMBER && tok_d.kind == tkNUMBER && tok_e.kind == tkNUMBER && tok_f.kind == tkNUMBER && tok_g.kind == tkNUMBER) {
+                    double a = tok_a.raw.to_float();
+                    double b = tok_b.raw.to_float();
+                    double c = tok_c.raw.to_float();
+                    double d = tok_d.raw.to_float();
+                    double _e = tok_e.raw.to_float();
+                    double f = tok_f.raw.to_float();
+                    double g = tok_g.raw.to_float();
+                    if (e.raw == "rot_x") {
+                        temp = Vector3(c, b, a).rotated(Vector3(f, _e, d), g).x;
+                    } else if (e.raw == "rot_y") {
+                        temp = Vector3(c, b, a).rotated(Vector3(f, _e, d), g).y;
+                    } else if (e.raw == "rot_z") {
+                        temp = Vector3(c, b, a).rotated(Vector3(f, _e, d), g).z;
+                    }
+                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(tok_f)
+                    PUSH_VAR(tok_e)
+                    PUSH_VAR(tok_d)
+                    PUSH_VAR(tok_c)
+                    PUSH_VAR(tok_b)
+                    PUSH_VAR(tok_a)
+                    PUSH_VAR(e)
+                }
+            } break;
+
             case 8: {
                 POP_VAR(tok_a, e.raw + " requires at least 8 parameter")
                 POP_VAR(tok_b, e.raw + " requires at least 8 parameter")

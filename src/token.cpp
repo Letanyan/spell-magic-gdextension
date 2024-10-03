@@ -55,6 +55,9 @@ bool is_func(godot::String name)
     if (name == "proj_x" || name == "proj_y" || name == "proj_z" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
         return true;
     }
+    if (name == "rot_x" || name == "rot_y" || name == "rot_z") {
+        return true;
+    }
     return false;
 }
 
@@ -89,6 +92,9 @@ int godot::number_of_func_arguments(godot::String name)
     }
     if (name == "segment3" || name == "dot3" || name == "cross_x" || name == "cross_y" || name == "cross_z" || name == "proj_x" || name == "proj_y" || name == "proj_z") {
         return 6;
+    }
+    if (name == "rot_x" || name == "rot_y" || name == "rot_z") {
+        return 7;
     }
     if (name == "segment4") {
         return 8;

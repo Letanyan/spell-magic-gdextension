@@ -508,17 +508,41 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 auto v = Vector3(c, b, a);
                 value = (v - v.dot(n) * n).z;
             } else if (e.raw == "unit_x") {
-                POP_VAR(b, "unit_x requires 6 parameters")
-                POP_VAR(c, "unit_x requires 6 parameters")
+                POP_VAR(b, "unit_x requires 3 parameters")
+                POP_VAR(c, "unit_x requires 3 parameters")
                 value = Vector3(c, b, a).normalized().x;
             } else if (e.raw == "unit_y") {
-                POP_VAR(b, "unit_y requires 6 parameters")
-                POP_VAR(c, "unit_y requires 6 parameters")
+                POP_VAR(b, "unit_y requires 3 parameters")
+                POP_VAR(c, "unit_y requires 3 parameters")
                 value = Vector3(c, b, a).normalized().y;
             } else if (e.raw == "unit_z") {
-                POP_VAR(b, "unit_z requires 6 parameters")
-                POP_VAR(c, "unit_z requires 6 parameters")
+                POP_VAR(b, "unit_z requires 3 parameters")
+                POP_VAR(c, "unit_z requires 3 parameters")
                 value = Vector3(c, b, a).normalized().z;
+            } else if (e.raw == "rot_x") {
+                POP_VAR(b, "rot_x requires 7 parameters")
+                POP_VAR(c, "rot_x requires 7 parameters")
+                POP_VAR(d, "rot_x requires 7 parameters")
+                POP_VAR(e, "rot_x requires 7 parameters")
+                POP_VAR(f, "rot_x requires 7 parameters")
+                POP_VAR(g, "rot_x requires 7 parameters")
+                value = Vector3(c, b, a).rotated(Vector3(f, e, d).normalized(), g).x;
+            } else if (e.raw == "rot_y") {
+                POP_VAR(b, "rot_y requires 7 parameters")
+                POP_VAR(c, "rot_y requires 7 parameters")
+                POP_VAR(d, "rot_y requires 7 parameters")
+                POP_VAR(e, "rot_y requires 7 parameters")
+                POP_VAR(f, "rot_y requires 7 parameters")
+                POP_VAR(g, "rot_y requires 7 parameters")
+                value = Vector3(c, b, a).rotated(Vector3(f, e, d).normalized(), g).y;
+            } else if (e.raw == "rot_z") {
+                POP_VAR(b, "rot_z requires 7 parameters")
+                POP_VAR(c, "rot_z requires 7 parameters")
+                POP_VAR(d, "rot_z requires 7 parameters")
+                POP_VAR(e, "rot_z requires 7 parameters")
+                POP_VAR(f, "rot_z requires 7 parameters")
+                POP_VAR(g, "rot_z requires 7 parameters")
+                value = Vector3(c, b, a).rotated(Vector3(f, e, d).normalized(), g).z;
             }
             if (std::isnan(value)) {
                 value = 0.0;

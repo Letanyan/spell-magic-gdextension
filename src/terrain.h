@@ -23,6 +23,10 @@
 #ifndef HAS_MEDIUM
 #define HAS_MEDIUM true
 #endif
+#ifndef MEDIUM_SCALE
+#define MEDIUM_SCALE 1.0
+#endif
+
 #ifndef HAS_WATER
 #define HAS_WATER 1
 #endif
@@ -85,7 +89,7 @@ public:
     GDTerrain();
     ~GDTerrain();
 
-    void init(GDNoiseBlender* b, double cs = 256, double r = 3, double subdivide = 0.0625, double medium_chunk_width = 18);
+    void init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width);
     void set_biome_shader(Shader* biome_shader);
     void set_water_shader(Shader* water_shader);
     void set_water_noise(NoiseTexture2D* water_noise);
@@ -107,6 +111,7 @@ public:
     void update_chunk_environment(Node3D* node);
     void place_grass(Vector2 delta);
     void init_grass();
+    int count_grass_instances();
     void hide_water(float y, bool force_update);
     void set_player_coord_using_position(double x, double y, double cs);
     Vector2 convert_position_to_coord(double x, double y, double cs);

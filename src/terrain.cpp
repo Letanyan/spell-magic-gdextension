@@ -11,7 +11,7 @@ using namespace godot;
 
 void GDTerrain::_bind_methods()
 {
-    ClassDB::bind_method(D_METHOD("init", "b", "cs", "r", "subdivide"), &GDTerrain::init);
+    ClassDB::bind_method(D_METHOD("init", "b", "cs", "gs", "r", "subdivide"), &GDTerrain::init);
     ClassDB::bind_method(D_METHOD("set_biome_shader", "biome_shader"), &GDTerrain::set_biome_shader);
     ClassDB::bind_method(D_METHOD("set_water_shader", "water_shader"), &GDTerrain::set_water_shader);
     ClassDB::bind_method(D_METHOD("set_water_noise", "water_noise"), &GDTerrain::set_water_noise);
@@ -50,12 +50,12 @@ GDTerrain::~GDTerrain()
 {
 }
 
-void GDTerrain::init(GDNoiseBlender* b, double cs, double r, double subdivide, double medium_chunk_width)
+void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width)
 {
     this->subdivide_percent = subdivide;
     this->blender = b;
     this->chunk_size = cs;
-    this->grass_size = cs * 0.5;
+    this->grass_size = gs;
     this->radius = r;
     this->medium_chunk_width = medium_chunk_width;
     chunk_vertices = PackedVector3Array();
@@ -114,7 +114,7 @@ TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
     loaded_chunks_location.append_array(ref);
     ref.clear();
     if (HAS_MEDIUM) {
-        auto medium = init_chunks_of_size(medium_chunks, ref, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
+        auto medium = init_chunks_of_size(medium_chunks, ref, x, y, chunk_size * powf(1.f / MEDIUM_SCALE, 2.f), medium_chunk_width, subdivide_percent * MEDIUM_SCALE, false);
         medium_chunks_location.append_array(ref);
         ref.clear();
         result.append_array(medium);
@@ -125,11 +125,12 @@ TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
         ref.clear();
         result.append_array(water);
     }
-    if (HAS_GRASS) {
+    if (HAS_GRASS && grass_size > 0.0) {
         auto gm = new MultiMesh();
         gm->set_transform_format(MultiMesh::TRANSFORM_3D);
         gm->set_use_custom_data(true);
-        gm->set_instance_count(32175);
+        // gm->set_instance_count(32175);
+        gm->set_instance_count(count_grass_instances());
         gm->set_visible_instance_count(0);
         gm->set_mesh(grass_mesh);
         this->grass_mesh = new MultiMeshInstance3D();
@@ -187,7 +188,7 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
 
         should_exclude_update = false;
         if (r > radius) {
-            origin_delta = current_coord - convert_position_to_coord(loc.x, loc.y, cs);
+            origin_delta = current_coord - convert_position_to_coord(loc.x, loc.y, cs / pow(1 / MEDIUM_SCALE, 2.0));
             if (!is_water && abs(origin_delta.x) <= (int)(radius / 2.0) && abs(origin_delta.y) <= (int)(radius / 2.0)) {
                 should_exclude_update = true;
                 auto pos = ((Node3D*)(Object*)chunks[i])->get_position();
@@ -234,7 +235,7 @@ Dictionary GDTerrain::update_chunks(double x, double y)
     auto removed = (PackedVector2Array)high.get("removed", PackedVector2Array());
     auto updated = (PackedVector2Array)high.get("updated", PackedVector2Array());
     if (HAS_MEDIUM) {
-        update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size, medium_chunk_width, subdivide_percent, false);
+        update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size * powf(1 / MEDIUM_SCALE, 2.0), medium_chunk_width, subdivide_percent * MEDIUM_SCALE, false);
     }
     if (HAS_WATER) {
         update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size, true);
@@ -328,6 +329,7 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
 {
     auto mesh = (ArrayMesh*)*mi->get_mesh();
     auto mesh_data = mi->get_mesh()->surface_get_arrays(0);
+    auto vertices = (PackedVector3Array)mesh_data[Mesh::ArrayType::ARRAY_VERTEX];
     if (chunk_vertices.is_empty()) {
         auto positions = (PackedVector3Array)mesh_data[Mesh::ArrayType::ARRAY_VERTEX];
         for (int i = 0; i < positions.size(); i++) {
@@ -335,7 +337,7 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         }
     }
 
-    auto R = size / (float)((int)(size * subdivide_percent));
+    auto R = size / (float)((int)(size * subdivide));
     auto texture_size = size / R;
     auto biome_x_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 0);
     auto biome_y_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 1);
@@ -349,13 +351,13 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         auto hmap = (HeightMapShape3D*)*collision_shape->get_shape();
         auto array = PackedFloat32Array();
         array.resize(hmap->get_map_data().size());
-        for (int i = 0; i < chunk_vertices.size(); i++) {
-            A = chunk_vertices[i];
+        for (int i = 0; i < vertices.size(); i++) {
+            A = vertices[i];
             size_t r = i / w;
             size_t c = i % w;
             size_t j = w * (w - r - 1) + (w - c - 1);
             A.y = ys[j];
-            chunk_vertices[i].y = ys[j];
+            vertices[i].y = ys[j];
             array.set(i, A.y / collision_shape->get_scale().y);
             if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0) {
                 max_height_position = Vector3(A.x + x, A.y, A.z + y);
@@ -363,18 +365,18 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         }
         hmap->set_map_data(array);
     } else {
-        for (int i = 0; i < chunk_vertices.size(); i++) {
-            A = chunk_vertices[i];
+        for (int i = 0; i < vertices.size(); i++) {
+            A = vertices[i];
             size_t r = i / w;
             size_t c = i % w;
             size_t j = w * (w - r - 1) + (w - c - 1);
             A.y = ys[j];
-            chunk_vertices[i].y = ys[j];
+            vertices[i].y = ys[j];
         }
     }
 
     mesh->clear_surfaces();
-    mesh_data[Mesh::ArrayType::ARRAY_VERTEX] = chunk_vertices;
+    mesh_data[Mesh::ArrayType::ARRAY_VERTEX] = vertices;
     mesh->add_surface_from_arrays(Mesh::PrimitiveType::PRIMITIVE_TRIANGLES, mesh_data);
     mesh->surface_set_material(0, new ShaderMaterial());
 
@@ -532,6 +534,36 @@ void GDTerrain::init_grass()
         grass_coords.append(v);
     }
     mm->set_visible_instance_count(i);
+}
+
+int GDTerrain::count_grass_instances()
+{
+    const int R = 4;
+    int i = 0;
+    for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
+        for (int _Y = -grass_size; _Y < grass_size + 1; _Y += R) {
+            auto x = _X + ((_Y / R) % 2 == 0 ? 1 : 0) * R;
+            auto y = _Y;
+            for (int r = 0; r < R + 1; r += 2) {
+                auto a = 0.0;
+                while (a < Math_PI * 2) {
+                    a += Math_PI / 4.0 * (1.0 / (floor(r / 4.0) + 1));
+                    auto nx = cos(a) * r + x;
+                    auto ny = sin(a) * r + y;
+                    auto is_top_left = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x - R, y - R), R);
+                    auto is_top_right = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x + R, y - R), R);
+                    if (is_top_left || is_top_right) {
+                        continue;
+                    }
+                    i += 1;
+                    if (r == 0) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return UtilityFunctions::ceili(i * 1.1);
 }
 
 void GDTerrain::hide_water(float y, bool force_update)

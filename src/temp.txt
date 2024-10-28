@@ -220,3 +220,59 @@ get list 0
 var x get list 0
 
 
+import il
+var x 8
+s32.mov x 10
+f64.add x 15.0
+jmp loop
+label loop
+
+func if condition: () -> bool then? then: () -> void else? else?: () -> void => void {
+    import il
+
+    call condition
+    cmp r0 true
+    jnz else_branch
+    call then
+    jmp fi
+
+    label else_branch
+    call else
+
+    label fi
+}
+
+func while condition: () -> bool do? body: () -> void => void {
+    import il
+
+    label loop
+    call condition
+    cmp r0 true
+    jnz fi
+    call body
+    jmp loop
+
+    label fi
+}
+
+func for it: Id in? expression: $S body: () -> void => void {
+    
+}
+
+func ifx condition: () -> bool then? then: () -> $T else? else: () -> T => T {
+    import il
+
+    call condition
+    cmp r0 true
+    jnz else_branch
+    call then
+    return r0
+    jmp fi
+
+    label else_branch
+    call else
+    return r0
+
+    label fi
+}
+

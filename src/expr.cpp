@@ -599,7 +599,7 @@ void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result,
             if (sub_expr.length() > 0) {
                 auto sub_tokens = godot::tokenize("(" + sub_expr + ")");
                 if (vector_contains_string(chain, e.raw)) {
-                    result->push_back(GDToken(tkNUMBER, "0"));
+                    result->push_back(GDToken(tkNUMBER, "0")); // FIXME: use emplace_back to avoid copy
                 } else {
                     chain->push_back(e.raw);
                     bake_into_vector(sub_tokens, &buffer, map, chain);
@@ -613,7 +613,7 @@ void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result,
         }
     }
     for (auto& e : buffer) {
-        result->push_back(e);
+        result->push_back(e); // FIXME: use std::move
     }
 }
 

@@ -51,8 +51,10 @@ void GDNoiseBlender::_bind_methods()
     ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "location", "color"), &GDNoiseBlender::add_biome);
     // ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
     ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y"), &GDNoiseBlender::compute_biome_stats);
+    ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s"), &GDNoiseBlender::compute_biome_map_stats);
     ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
     ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
+    ClassDB::bind_method(D_METHOD("get_biomes_map"), &GDNoiseBlender::get_biomes_map);
     ClassDB::bind_method(D_METHOD("get_color"), &GDNoiseBlender::get_color);
     ClassDB::bind_method(D_METHOD("get_distances"), &GDNoiseBlender::get_distances);
 
@@ -109,6 +111,15 @@ double GDNoiseBlender::get_total_distance()
 int GDNoiseBlender::get_biome()
 {
     return biome;
+}
+
+PackedInt64Array GDNoiseBlender::get_biomes_map()
+{
+    auto result = PackedInt64Array();
+    for (auto i : biomes_map) {
+        result.append(i);
+    }
+    return result;
 }
 
 void GDNoiseBlender::set_biome_noise(String encoded, int seed, int axis)
@@ -318,24 +329,25 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
     min_distances_map.resize(map_size);
     min_distances_index_map.resize(map_size);
     biomes_map.resize(map_size);
-    colors_map.resize(map_size);
+    // colors_map.resize(map_size);
     for (size_t r = 0; r < w * h; r++) {
         auto min_distance = INFINITY;
         auto pos = 0;
         auto p = Vector2(biome_noise_x_map[r] * 0.5 + 0.5, biome_noise_y_map[r] * 0.5 + 0.5);
         auto dist = 0.0;
-        auto clr = Vector3(1, 1, 1);
-        auto c = Vector3(0, 0, 0);
+        // auto clr = Vector3(1, 1, 1);
+        // auto c = Vector3(0, 0, 0);
         total_distance = 0.0;
         for (size_t i = 0; i < locations.size(); i++) {
             dist = axial_dependant_distance(p, locations[i]);
             distances_map[r * locations.size() + i] = dist;
             total_distance += dist;
-            c = colors[i].lerp(Vector3(1, 1, 1), dist);
-            if (dist <= (axial_weight + 1.0)) {
-                c = Vector3(1, 1, 1).lerp(colors[i], powf(1.0 - dist / (axial_weight + 1.0), 3.0));
-                clr = clr * c;
-            }
+            // c = colors[i].lerp(Vector3(1, 1, 1), dist);
+            // if (dist <= (axial_weight + 1.0)) {
+            //     float mix_alpha = pow(1.0 - dist / (axial_weight + 1.0), 3.0);
+            //     c = oklab_mix(Vector3(1, 1, 1), colors[i], mix_alpha);
+            //     clr = clr * c;
+            // }
             if (dist < min_distance) {
                 min_distances_map[r] = dist;
                 min_distances_index_map[r] = i;
@@ -343,10 +355,13 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
                 pos = i;
             }
         }
-        // distances_map[r * locations.size() + pos] = 0.0; // clip nearest biome to 0 to bias distance
+        // Vector3 temp_color = rgb2hsv(Vector3(clr.x, clr.y, clr.z));
+        // temp_color.z = 1.0 - pow(1.0 - temp_color.z, 2.0);
+        // temp_color = hsv2rgb(temp_color);
+
         total_distances_map[r] = total_distance;
         biomes_map[r] = pos;
-        colors_map[r] = Color(clr.x, clr.y, clr.z);
+        // colors_map[r] = Color(temp_color.x, temp_color.y, temp_color.z);
     }
 }
 
@@ -392,7 +407,7 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
     terrain_noise.resize(map_size);
     for (int i = 0; i < locations.size(); i++) {
         terrains[i].noise2d(terrain_noise.data(), X, Y, W, H, scale + 2);
-        auto curve = (Curve*)(Object*)curves[i];
+        auto curve = curves[i];
         for (int j = 0; j < terrain_noise.size(); j++) {
             double e = terrain_noise[j] * 0.5 + 0.5;
             e = curve->sample(e);

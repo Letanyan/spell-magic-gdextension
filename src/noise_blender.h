@@ -77,6 +77,7 @@ public:
     PackedFloat64Array get_distances();
     double get_total_distance();
     int get_biome();
+    PackedInt64Array get_biomes_map();
 
     void set_biome_noise(String encoded, int seed, int axis);
 

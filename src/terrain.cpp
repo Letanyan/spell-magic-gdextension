@@ -19,16 +19,16 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_noise_texture", "noise_texture"), &GDTerrain::set_noise_texture);
     ClassDB::bind_method(D_METHOD("set_sea_level", "level"), &GDTerrain::set_sea_level);
 
-    ClassDB::bind_method(D_METHOD("init_chunks_of_size", "chunks", "locations", "x", "y", "cs", "r", "subdivide", "is_water"), &GDTerrain::init_chunks_of_size);
+    ClassDB::bind_method(D_METHOD("init_chunks_of_size", "chunks", "index", "x", "y", "cs", "r", "subdivide"), &GDTerrain::init_chunks_of_size);
     ClassDB::bind_method(D_METHOD("init_chunks", "x", "y", "grass_mesh"), &GDTerrain::init_chunks);
-    ClassDB::bind_method(D_METHOD("update_chunks_with_size", "chunks", "index", "x", "y", "cs", "r", "subdivide", "is_water"), &GDTerrain::update_chunks_with_size);
+    ClassDB::bind_method(D_METHOD("update_chunks_with_size", "chunks", "index", "x", "y", "cs", "r", "subdivide"), &GDTerrain::update_chunks_with_size);
     ClassDB::bind_method(D_METHOD("update_chunks", "x", "y"), &GDTerrain::update_chunks);
     ClassDB::bind_method(D_METHOD("create_mesh", "x", "y", "size", "r", "subdivide"), &GDTerrain::create_mesh);
     ClassDB::bind_method(D_METHOD("create_water_mesh", "x", "y", "size"), &GDTerrain::create_water_mesh);
     ClassDB::bind_method(D_METHOD("create_chunk_with_size", "chunks", "locations", "x", "y", "cs", "r", "subdivide", "is_water"), &GDTerrain::create_chunk_with_size);
     ClassDB::bind_method(D_METHOD("update_mesh", "mi", "x", "y", "size", "r", "subdivide"), &GDTerrain::update_mesh);
     ClassDB::bind_method(D_METHOD("update_water_mesh", "mi", "x", "y", "size", "r", "subdivide"), &GDTerrain::update_water_mesh);
-    ClassDB::bind_method(D_METHOD("update_chunk_with_size", "node", "x", "y", "size", "r", "subdivide", "is_water"), &GDTerrain::update_chunk_with_size);
+    ClassDB::bind_method(D_METHOD("update_chunk_with_size", "node", "index", "chunk_index", "x", "y", "size", "r", "subdivide"), &GDTerrain::update_chunk_with_size);
     ClassDB::bind_method(D_METHOD("update_environment", "x", "y"), &GDTerrain::update_environment);
     ClassDB::bind_method(D_METHOD("update_chunk_environment", "node"), &GDTerrain::update_chunk_environment);
     ClassDB::bind_method(D_METHOD("place_grass", "delta"), &GDTerrain::place_grass);
@@ -39,6 +39,9 @@ void GDTerrain::_bind_methods()
 
     ClassDB::bind_method(D_METHOD("get_max_height_position"), &GDTerrain::get_max_height_position);
     ClassDB::bind_method(D_METHOD("get_loaded_chunks_location"), &GDTerrain::get_loaded_chunks_location);
+    ClassDB::bind_method(D_METHOD("get_chunk_vertices"), &GDTerrain::get_chunk_vertices);
+    ClassDB::bind_method(D_METHOD("get_biomes_map", "index"), &GDTerrain::get_biomes_map);
+    ClassDB::bind_method(D_METHOD("get_noise_scale"), &GDTerrain::get_noise_scale);
 }
 
 GDTerrain::GDTerrain()
@@ -91,38 +94,45 @@ void GDTerrain::set_sea_level(double level)
     this->sea_level = level;
 }
 
-TypedArray<Node3D> GDTerrain::init_chunks_of_size(TypedArray<Node3D> chunks, TypedArray<Vector2> locations, double x, double y, double cs, double r, double subdivide, bool is_water)
+TypedArray<Node3D> GDTerrain::init_chunks_of_size(TypedArray<Node3D> chunks, int64_t index, double x, double y, double cs, double r, double subdivide)
 {
     this->set_player_coord_using_position(x, y, cs);
     auto rad = (int)(r / 2.0);
     auto result = TypedArray<Node3D>();
+    auto ref = TypedArray<Vector2>();
+    int i = 0;
     for (int w = -rad; w < rad + 1; w++) {
         for (int h = -rad; h < rad + 1; h++) {
             auto p = Vector2((player_coord.x + w) * cs, (player_coord.y + h) * cs);
-            auto node = create_chunk_with_size(chunks, locations, p.x, p.y, cs, r, subdivide, is_water);
-            update_chunk_with_size(node, p.x, p.y, cs, r, subdivide, is_water);
+            auto node = create_chunk_with_size(chunks, ref, p.x, p.y, cs, r, subdivide, index == lciWATER);
+            update_chunk_with_size(node, index, i, p.x, p.y, cs, r, subdivide);
             result.append(node);
+            i++;
         }
+    }
+    switch (index) {
+    case lciMAIN:
+        loaded_chunks_location.append_array(ref);
+        break;
+    case lciMED:
+        medium_chunks_location.append_array(ref);
+        break;
+    case lciWATER:
+        water_chunks_location.append_array(ref);
+        break;
     }
     return result;
 }
 
 TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
 {
-    auto ref = TypedArray<Vector2>();
-    auto result = init_chunks_of_size(loaded_chunks, ref, x, y, chunk_size, radius, subdivide_percent, false);
-    loaded_chunks_location.append_array(ref);
-    ref.clear();
+    auto result = init_chunks_of_size(loaded_chunks, lciMAIN, x, y, chunk_size, radius, subdivide_percent);
     if (HAS_MEDIUM) {
-        auto medium = init_chunks_of_size(medium_chunks, ref, x, y, chunk_size * powf(1.f / MEDIUM_SCALE, 2.f), medium_chunk_width, subdivide_percent * MEDIUM_SCALE, false);
-        medium_chunks_location.append_array(ref);
-        ref.clear();
+        auto medium = init_chunks_of_size(medium_chunks, lciMED, x, y, chunk_size * powf(1.f / MEDIUM_SCALE, 2.f), medium_chunk_width, subdivide_percent * MEDIUM_SCALE);
         result.append_array(medium);
     }
     if (HAS_WATER) {
-        auto water = init_chunks_of_size(water_chunks, ref, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size, true);
-        water_chunks_location.append_array(ref);
-        ref.clear();
+        auto water = init_chunks_of_size(water_chunks, lciWATER, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size);
         result.append_array(water);
     }
     if (HAS_GRASS && grass_size > 0.0) {
@@ -141,7 +151,7 @@ TypedArray<Node3D> GDTerrain::init_chunks(double x, double y, Mesh* grass_mesh)
     return result;
 }
 
-Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_t index, double x, double y, double cs, double r, double subdivide, bool is_water)
+Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, int64_t index, double x, double y, double cs, double r, double subdivide)
 {
     auto old_coord = player_coord;
     auto current_coord = convert_position_to_coord(x, y, cs);
@@ -189,14 +199,14 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
         should_exclude_update = false;
         if (r > radius) {
             origin_delta = current_coord - convert_position_to_coord(loc.x, loc.y, cs / pow(1 / MEDIUM_SCALE, 2.0));
-            if (!is_water && abs(origin_delta.x) <= (int)(radius / 2.0) && abs(origin_delta.y) <= (int)(radius / 2.0)) {
+            if (index != lciWATER && abs(origin_delta.x) <= (int)(radius / 2.0) && abs(origin_delta.y) <= (int)(radius / 2.0)) {
                 should_exclude_update = true;
                 auto pos = ((Node3D*)(Object*)chunks[i])->get_position();
                 pos.y = -1000;
                 ((Node3D*)(Object*)chunks[i])->set_position(pos);
             } else {
                 auto pos = ((Node3D*)(Object*)chunks[i])->get_position();
-                pos.y = !is_water ? 0 : sea_level;
+                pos.y = index != lciWATER ? 0 : sea_level;
                 ((Node3D*)(Object*)chunks[i])->set_position(pos);
             }
         }
@@ -206,6 +216,7 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
             case lciMAIN: {
                 removed_locations.append(loaded_chunks_location[i]);
                 loaded_chunks_location.set(i, loc);
+                loaded_biomes.erase(loaded_chunks_location[i]);
             } break;
             case lciMED: {
                 removed_locations.append(medium_chunks_location[i]);
@@ -218,7 +229,7 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
             }
             updated_locations.append(loc);
             if (!should_exclude_update) {
-                update_chunk_with_size((Node3D*)(Object*)chunks[i], loc.x, loc.y, cs, r, subdivide, is_water);
+                update_chunk_with_size((Node3D*)(Object*)chunks[i], index, i, loc.x, loc.y, cs, r, subdivide);
             }
         }
     }
@@ -231,14 +242,14 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, uint64_
 
 Dictionary GDTerrain::update_chunks(double x, double y)
 {
-    auto high = update_chunks_with_size(loaded_chunks, lciMAIN, x, y, chunk_size, radius, subdivide_percent, false);
+    auto high = update_chunks_with_size(loaded_chunks, lciMAIN, x, y, chunk_size, radius, subdivide_percent);
     auto removed = (PackedVector2Array)high.get("removed", PackedVector2Array());
     auto updated = (PackedVector2Array)high.get("updated", PackedVector2Array());
     if (HAS_MEDIUM) {
-        update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size * powf(1 / MEDIUM_SCALE, 2.0), medium_chunk_width, subdivide_percent * MEDIUM_SCALE, false);
+        update_chunks_with_size(medium_chunks, lciMED, x, y, chunk_size * powf(1 / MEDIUM_SCALE, 2.0), medium_chunk_width, subdivide_percent * MEDIUM_SCALE);
     }
     if (HAS_WATER) {
-        update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size, true);
+        update_chunks_with_size(water_chunks, lciWATER, x, y, chunk_size, medium_chunk_width, 16.0 / chunk_size);
     }
     set_player_coord_using_position(x, y, chunk_size);
     auto result = Dictionary();
@@ -339,12 +350,19 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
 
     auto R = size / (float)((int)(size * subdivide));
     auto texture_size = size / R;
-    auto biome_x_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 0);
-    auto biome_y_texture = blender->biome_texture(x / R, y / R, texture_size, texture_size, R, 1);
+
+    auto W = texture_size + 2;
+    auto X = x / R - W / 2.0 + (x / R / R);
+    auto Y = y / R - W / 2.0 + (y / R / R);
+    X = UtilityFunctions::snappedf(X, 0.0001);
+    Y = UtilityFunctions::snappedf(Y, 0.0001);
+
+    auto biome_x_texture = blender->biome_texture(X, Y, W, W, R, 0);
+    auto biome_y_texture = blender->biome_texture(X, Y, W, W, R, 1);
 
     auto A = Vector3();
-    auto ys = blender->height_map(x, y, texture_size, texture_size, R);
-    auto w = (size_t)texture_size + 2;
+    auto ys = blender->height_map(X, Y, W, W, R);
+    auto w = (size_t)W;
     if (r <= radius && mi->has_node("static")) {
         auto static_body = mi->get_node<StaticBody3D>("static");
         auto collision_shape = static_body->get_node<CollisionShape3D>("collision");
@@ -400,13 +418,16 @@ void GDTerrain::update_water_mesh(MeshInstance3D* mi, double x, double y, double
     mat->set_shader_parameter("ripples", water_ripples_noise);
 }
 
-void GDTerrain::update_chunk_with_size(Node3D* node, double x, double y, double cs, double r, double subdivide, bool is_water)
+void GDTerrain::update_chunk_with_size(Node3D* node, int64_t index, size_t chunk_index, double x, double y, double cs, double r, double subdivide)
 {
     auto mi = node->get_node<MeshInstance3D>("mesh");
-    if (is_water) {
+    if (index == lciWATER) {
         update_water_mesh(mi, x, y, cs, r, subdivide);
     } else {
         update_mesh(mi, x, y, cs, r, subdivide);
+        if (index == lciMAIN) {
+            loaded_biomes[Vector2(x, y)] = blender->get_biomes_map();
+        }
     }
     auto pos = node->get_position();
     pos.x = x;
@@ -451,6 +472,7 @@ void GDTerrain::place_grass(Vector2 delta)
     auto wh = 0.0;
     auto clr = Color(1, 1, 1, 1);
     auto nav = new GDNavigator();
+    auto R = chunk_size / (float)((int)(chunk_size * subdivide_percent));
     for (int i = 0; i < mm->get_visible_instance_count(); i++) {
         pos = grass_coords[i];
         horz = pos.x > player_position.x + grass_size || pos.x < player_position.x - grass_size;
@@ -459,7 +481,7 @@ void GDTerrain::place_grass(Vector2 delta)
         if (horz || vert || ignore_delta) {
             p.x = pos.x + delta.x * (horz ? 1 : 0);
             p.z = pos.z + delta.y * (vert ? 1 : 0);
-            blender->compute_biome_stats(p.x, p.z);
+            blender->compute_biome_stats(p.x, p.z, R);
             no_hit->set_data(false);
             auto normal_height = nav->get_world_normal_height(grass_mesh->get_world_3d()->get_direct_space_state(), p.x, p.z, no_hit);
             wh = ((Vector3)normal_height.get("position", Vector3())).y;
@@ -617,4 +639,19 @@ Vector3 GDTerrain::get_max_height_position()
 PackedVector2Array GDTerrain::get_loaded_chunks_location()
 {
     return loaded_chunks_location;
+}
+
+PackedVector3Array GDTerrain::get_chunk_vertices()
+{
+    return chunk_vertices;
+}
+
+PackedInt64Array GDTerrain::get_biomes_map(Vector2 index)
+{
+    return loaded_biomes[index];
+}
+
+float GDTerrain::get_noise_scale()
+{
+    return chunk_size / (float)((int)(chunk_size * subdivide_percent));
 }

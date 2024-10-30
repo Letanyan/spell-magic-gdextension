@@ -72,6 +72,7 @@ public:
     Color color;
     std::vector<double> distances;
     double total_distance;
+    double elevation_mix_exp;
 
     Color get_color();
     PackedFloat64Array get_distances();
@@ -80,12 +81,13 @@ public:
     PackedInt64Array get_biomes_map();
 
     void set_biome_noise(String encoded, int seed, int axis);
+    void set_elevation_mix_exp(double value);
 
     void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
 
-    void compute_biome_stats(double x, double y);
+    void compute_biome_stats(double x, double y, double scale);
     void compute_biome_map_stats(double x, double y, double w, double h, double scale);
-    double height(double x, double y);
+    double height(double x, double y, double scale);
     PackedFloat32Array height_map(double x, double y, double w, double h, double scale);
 
     NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);

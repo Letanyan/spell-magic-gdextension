@@ -42,6 +42,10 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_chunk_vertices"), &GDTerrain::get_chunk_vertices);
     ClassDB::bind_method(D_METHOD("get_biomes_map", "index"), &GDTerrain::get_biomes_map);
     ClassDB::bind_method(D_METHOD("get_noise_scale"), &GDTerrain::get_noise_scale);
+
+    ClassDB::bind_method(D_METHOD("height_at_position", "collision", "x", "z"), &GDTerrain::height_at_position);
+    ClassDB::bind_method(D_METHOD("terrain_normal", "x", "z", "no_hit"), &GDTerrain::terrain_normal, DEFVAL(nullptr));
+    ClassDB::bind_method(D_METHOD("get_loaded_chunks"), &GDTerrain::get_loaded_chunks);
 }
 
 GDTerrain::GDTerrain()
@@ -216,7 +220,8 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, int64_t
             case lciMAIN: {
                 removed_locations.append(loaded_chunks_location[i]);
                 loaded_chunks_location.set(i, loc);
-                loaded_biomes.erase(loaded_chunks_location[i]);
+                chunk_indexed_loaded_chunks.erase(loaded_chunks_location[i]);
+                loaded_biomes.erase(medium_chunks_location[i]);
             } break;
             case lciMED: {
                 removed_locations.append(medium_chunks_location[i]);
@@ -427,6 +432,10 @@ void GDTerrain::update_chunk_with_size(Node3D* node, int64_t index, size_t chunk
         update_mesh(mi, x, y, cs, r, subdivide);
         if (index == lciMAIN) {
             loaded_biomes[Vector2(x, y)] = blender->get_biomes_map();
+            auto mi = node->get_node<MeshInstance3D>("mesh");
+            auto static_body = mi->get_node<StaticBody3D>("static");
+            auto collision = static_body->get_node<CollisionShape3D>("collision");
+            chunk_indexed_loaded_chunks[Vector2(x, y)] = collision;
         }
     }
     auto pos = node->get_position();
@@ -445,6 +454,125 @@ void GDTerrain::update_environment(double x, double y)
 
 void GDTerrain::update_chunk_environment(Node3D* node)
 {
+}
+
+TypedArray<Node3D> GDTerrain::get_loaded_chunks()
+{
+    return loaded_chunks;
+}
+
+Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, double z)
+{
+    auto hmap = (HeightMapShape3D*)*collision->get_shape();
+    auto scale = collision->get_scale().x;
+
+    auto w = (hmap->get_map_width() - 1) * scale;
+    auto d = (hmap->get_map_depth() - 1) * scale;
+
+    // top-left corner of map
+    auto base_x = collision->get_global_position().x - w / 2.0;
+    auto base_z = collision->get_global_position().z - d / 2.0;
+
+    // top-left and bottom-right row and col coordinates
+    auto c0 = floorf((w - (x - base_x)) / scale);
+    auto r0 = floorf((d - (z - base_z)) / scale);
+    auto c1 = ceilf((w - (x - base_x)) / scale);
+    auto r1 = ceilf((d - (z - base_z)) / scale);
+    // auto c0 = floorf(((x - base_x)) / scale);
+    // auto r0 = floorf(((z - base_z)) / scale);
+    // auto c1 = ceilf(((x - base_x)) / scale);
+    // auto r1 = ceilf(((z - base_z)) / scale);
+
+    // if we are on a vertex move up/down for a coord
+    if (c0 == c1) {
+        if (c1 < hmap->get_map_width()) {
+            c1 += 1;
+        } else {
+            c0 -= 1;
+        }
+    }
+    if (r0 == r1) {
+        if (r1 < hmap->get_map_depth()) {
+            r1 += 1;
+        } else {
+            r0 -= 1;
+        }
+    }
+
+    // if outside bounds return NAN
+    if (c0 < 0 || c0 >= hmap->get_map_width() || c1 < 0 || c1 >= hmap->get_map_width()) {
+        return Vector4(NAN, NAN, NAN, NAN);
+    }
+    if (r0 < 0 || r0 >= hmap->get_map_depth() || r1 < 0 || r1 >= hmap->get_map_depth()) {
+        return Vector4(NAN, NAN, NAN, NAN);
+    }
+
+    // convert (x, z) world coords that are passed in to the function into local space
+    auto tX = (w - (x - base_x)) - w / 2.0;
+    auto tZ = (d - (z - base_z)) - d / 2.0;
+    // auto tX = ((x - base_x)) - w / 2.0;
+    // auto tZ = ((z - base_z)) - d / 2.0;
+
+    // top-left and bottom-right coords in local space
+    auto x0 = c0 * scale - w / 2.0;
+    auto x1 = c1 * scale - w / 2.0;
+    auto z0 = r0 * scale - d / 2.0;
+    auto z1 = r1 * scale - d / 2.0;
+
+    // find the 3 points that form the triangle (x,z) pas through
+    auto s = Vector2(tX, tZ);
+    auto s1 = Vector2(x0, z1);
+    auto s2 = Vector2(x1, z0);
+    auto s8 = Vector2(x0, z0);
+    auto s9 = Vector2(x1, z1);
+    auto is_low_point = s8.distance_squared_to(s) < s9.distance_squared_to(s);
+    auto s0 = is_low_point ? s8 : s9;
+
+    // find the heights of the triangle
+    auto yB = hmap->get_map_data()[c0 + r1 * hmap->get_map_width()];
+    auto yC = hmap->get_map_data()[c1 + r0 * hmap->get_map_width()];
+    auto yA = is_low_point
+        ? (hmap->get_map_data()[c0 + r0 * hmap->get_map_width()])
+        : (hmap->get_map_data()[c1 + r1 * hmap->get_map_width()]);
+
+    // build the final 3D triangle with scaled y's
+    auto p0 = Vector3(s0.x, yA * scale, s0.y);
+    auto p1 = Vector3(s1.x, yB * scale, s1.y);
+    auto p2 = Vector3(s2.x, yC * scale, s2.y);
+
+    // normal for the plane of the triangle defined by the equation [dot(p-p0,N)] where p is some point
+    auto N = (p1 - p0).cross(p2 - p0);
+
+    // ray cast line defined as a parametric equation [q0 + t * (q1 - q0)]
+    auto q0 = Vector3(s.x, 5000, s.y);
+    auto q1 = Vector3(s.x, -5000, s.y);
+
+    // found by inserting the ray cast line into the plane equation
+    //      dot(q0 + t*(q1-q0) - p0, N) = 0
+    // =>   dot(q0-p0,N) + t dot(q1-q0,N) = 0
+    // =>   t = -dot(q0-p0,N)/dot(q1-q0,N)
+    auto t = -(q0 - p0).dot(N) / (q1 - q0).dot(N);
+
+    // plug t back into the parametric line equation
+    auto y = q0.lerp(q1, t).y;
+
+    N = N.normalized() * (is_low_point ? 1.0 : -1.0);
+    return Vector4(-N.x, N.y, -N.z, y);
+}
+
+void GDTerrain::terrain_normal(double x, double z, Dictionary result, GDInOut* no_hit)
+{
+    auto coord = convert_position_to_coord(x, z, chunk_size) * chunk_size;
+    CollisionShape3D* collision = (CollisionShape3D*)(Object*)chunk_indexed_loaded_chunks.get(coord, nullptr);
+    if (collision != nullptr) {
+        auto V = GDTerrain::height_at_position(collision, x, z);
+        result["position"] = Vector3(x, V.w, z);
+        result["normal"] = Vector3(V.x, V.y, V.z);
+    } else {
+        if (no_hit != NULL) {
+            no_hit->set_data(true);
+        }
+    }
 }
 
 void GDTerrain::place_grass(Vector2 delta)
@@ -473,6 +601,7 @@ void GDTerrain::place_grass(Vector2 delta)
     auto clr = Color(1, 1, 1, 1);
     auto nav = new GDNavigator();
     auto R = chunk_size / (float)((int)(chunk_size * subdivide_percent));
+    auto normal_height = Dictionary();
     for (int i = 0; i < mm->get_visible_instance_count(); i++) {
         pos = grass_coords[i];
         horz = pos.x > player_position.x + grass_size || pos.x < player_position.x - grass_size;
@@ -483,7 +612,7 @@ void GDTerrain::place_grass(Vector2 delta)
             p.z = pos.z + delta.y * (vert ? 1 : 0);
             blender->compute_biome_stats(p.x, p.z, R);
             no_hit->set_data(false);
-            auto normal_height = nav->get_world_normal_height(grass_mesh->get_world_3d()->get_direct_space_state(), p.x, p.z, no_hit);
+            terrain_normal(p.x, p.z, normal_height, no_hit);
             wh = ((Vector3)normal_height.get("position", Vector3())).y;
             whn = normal_height.get("normal", Vector3());
             if (no_hit->get_data() || wh < sea_level || whn.distance_to(Vector3(0, 1, 0)) > 1 / sqrt(2.0)) {
@@ -503,7 +632,7 @@ void GDTerrain::place_grass(Vector2 delta)
                 basis.set_column(0, -basis.get_column(2).cross(new_y));
                 nt.set_basis(basis.orthonormalized());
                 nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
-                auto h = blender->grass_height(blender->biome, -p.x, -p.y);
+                auto h = blender->grass_height(blender->biome, -p.x, -p.y); // use p.y for more consistency
                 if (h == 0) {
                     p.y = -10000;
                 }

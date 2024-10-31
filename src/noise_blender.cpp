@@ -82,7 +82,7 @@ GDNoiseBlender::GDNoiseBlender()
     min_distances_index_map = std::vector<size_t>();
     height_map_store = PackedFloat32Array();
     colors_map = std::vector<Color>();
-    biomes_map = std::vector<int>();
+    biomes_map = PackedInt32Array();
 }
 
 GDNoiseBlender::~GDNoiseBlender()
@@ -114,13 +114,9 @@ int GDNoiseBlender::get_biome()
     return biome;
 }
 
-PackedInt64Array GDNoiseBlender::get_biomes_map()
+PackedInt32Array GDNoiseBlender::get_biomes_map()
 {
-    auto result = PackedInt64Array();
-    for (auto i : biomes_map) {
-        result.append(i);
-    }
-    return result;
+    return biomes_map;
 }
 
 void GDNoiseBlender::set_biome_noise(String encoded, int seed, int axis)

@@ -47,7 +47,7 @@ protected:
     std::vector<float> total_distances_map;
     std::vector<float> min_distances_map;
     std::vector<Color> colors_map;
-    std::vector<int> biomes_map;
+    PackedInt32Array biomes_map;
 
 public:
     GDProfiler profile_compute;
@@ -78,7 +78,7 @@ public:
     PackedFloat64Array get_distances();
     double get_total_distance();
     int get_biome();
-    PackedInt64Array get_biomes_map();
+    PackedInt32Array get_biomes_map();
 
     void set_biome_noise(String encoded, int seed, int axis);
     void set_elevation_mix_exp(double value);

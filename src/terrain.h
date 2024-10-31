@@ -1,6 +1,7 @@
 #ifndef GDTERRAIN_H
 #define GDTERRAIN_H
 
+#include "inout.h"
 #include "noise_blender.h"
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/collision_shape3d.hpp>
@@ -70,6 +71,7 @@ protected:
     PackedVector2Array loaded_chunks_location;
     TypedArray<Node3D> loaded_chunks;
     Dictionary loaded_biomes;
+    Dictionary chunk_indexed_loaded_chunks;
     PackedVector2Array medium_chunks_location;
     TypedArray<Node3D> medium_chunks;
     PackedVector2Array water_chunks_location;
@@ -124,6 +126,10 @@ public:
     PackedInt64Array get_biomes_map(Vector2 index);
 
     float get_noise_scale();
+
+    Vector4 height_at_position(CollisionShape3D* collision, double x, double z);
+    void terrain_normal(double x, double z, Dictionary result, GDInOut* no_hit = NULL);
+    TypedArray<Node3D> get_loaded_chunks();
 };
 
 }

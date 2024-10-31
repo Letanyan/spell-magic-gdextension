@@ -11,7 +11,7 @@ using namespace godot;
 
 void GDTerrain::_bind_methods()
 {
-    ClassDB::bind_method(D_METHOD("init", "b", "cs", "gs", "r", "subdivide"), &GDTerrain::init);
+    ClassDB::bind_method(D_METHOD("init", "b", "cs", "gs", "r", "subdivide", "find_bound_coords"), &GDTerrain::init);
     ClassDB::bind_method(D_METHOD("set_biome_shader", "biome_shader"), &GDTerrain::set_biome_shader);
     ClassDB::bind_method(D_METHOD("set_water_shader", "water_shader"), &GDTerrain::set_water_shader);
     ClassDB::bind_method(D_METHOD("set_water_noise", "water_noise"), &GDTerrain::set_water_noise);
@@ -38,6 +38,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("convert_position_to_coord", "x", "y", "cs"), &GDTerrain::convert_position_to_coord);
 
     ClassDB::bind_method(D_METHOD("get_max_height_position"), &GDTerrain::get_max_height_position);
+    ClassDB::bind_method(D_METHOD("get_min_height_position"), &GDTerrain::get_min_height_position);
     ClassDB::bind_method(D_METHOD("get_loaded_chunks_location"), &GDTerrain::get_loaded_chunks_location);
     ClassDB::bind_method(D_METHOD("get_chunk_vertices"), &GDTerrain::get_chunk_vertices);
     ClassDB::bind_method(D_METHOD("get_biomes_map", "index"), &GDTerrain::get_biomes_map);
@@ -57,7 +58,7 @@ GDTerrain::~GDTerrain()
 {
 }
 
-void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width)
+void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width, bool find_bound_coords)
 {
     this->subdivide_percent = subdivide;
     this->blender = b;
@@ -65,6 +66,7 @@ void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double s
     this->grass_size = gs;
     this->radius = r;
     this->medium_chunk_width = medium_chunk_width;
+    this->find_bound_coords = find_bound_coords;
     chunk_vertices = PackedVector3Array();
 }
 
@@ -374,16 +376,21 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
         auto hmap = (HeightMapShape3D*)*collision_shape->get_shape();
         auto array = PackedFloat32Array();
         array.resize(hmap->get_map_data().size());
+        auto coord = convert_position_to_coord(x, y, chunk_size);
+        auto manhattan = UtilityFunctions::maxf(UtilityFunctions::absf(coord.x - player_coord.x), UtilityFunctions::absf(coord.y - player_coord.y));
+        auto is_central = manhattan < 1;
         for (int i = 0; i < vertices.size(); i++) {
             A = vertices[i];
-            size_t r = i / w;
-            size_t c = i % w;
-            size_t j = w * (w - r - 1) + (w - c - 1);
+            size_t row = i / w;
+            size_t col = i % w;
+            size_t j = w * (w - row - 1) + (w - col - 1);
             A.y = ys[j];
             vertices[i].y = ys[j];
             array.set(i, A.y / collision_shape->get_scale().y);
-            if (A.y > max_height_position.y && r <= radius && abs(A.x) < size / 2.0 && abs(A.z) < size / 2.0) {
-                max_height_position = Vector3(A.x + x, A.y, A.z + y);
+            if (find_bound_coords) {
+                if (A.y > max_height_position.y && is_central && abs(A.x) < size * 0.9 && abs(A.z) < size * 0.9) {
+                    max_height_position = Vector3(A.x + x, A.y, A.z + y);
+                }
             }
         }
         hmap->set_map_data(array);
@@ -395,6 +402,11 @@ void GDTerrain::update_mesh(MeshInstance3D* mi, double x, double y, double size,
             size_t j = w * (w - r - 1) + (w - c - 1);
             A.y = ys[j];
             vertices[i].y = ys[j];
+            if (find_bound_coords) {
+                if (A.y < min_height_position.y) {
+                    min_height_position = Vector3(A.x + x, A.y, A.z + y);
+                }
+            }
         }
     }
 
@@ -470,10 +482,11 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
     auto d = (hmap->get_map_depth() - 1) * scale;
 
     // top-left corner of map
-    auto base_x = collision->get_global_position().x - w / 2.0;
-    auto base_z = collision->get_global_position().z - d / 2.0;
+    auto base_x = collision->get_global_position().x - w * 0.5;
+    auto base_z = collision->get_global_position().z - d * 0.5;
 
     // top-left and bottom-right row and col coordinates
+    // *** Subtract from the width/depth because of noise texture mapping
     auto c0 = floorf((w - (x - base_x)) / scale);
     auto r0 = floorf((d - (z - base_z)) / scale);
     auto c1 = ceilf((w - (x - base_x)) / scale);
@@ -485,14 +498,14 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
 
     // if we are on a vertex move up/down for a coord
     if (c0 == c1) {
-        if (c1 < hmap->get_map_width()) {
+        if (c1 < hmap->get_map_width() - 1) {
             c1 += 1;
         } else {
             c0 -= 1;
         }
     }
     if (r0 == r1) {
-        if (r1 < hmap->get_map_depth()) {
+        if (r1 < hmap->get_map_depth() - 1) {
             r1 += 1;
         } else {
             r0 -= 1;
@@ -501,23 +514,26 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
 
     // if outside bounds return NAN
     if (c0 < 0 || c0 >= hmap->get_map_width() || c1 < 0 || c1 >= hmap->get_map_width()) {
+        UtilityFunctions::print("x: ", x, " :: ", c0, "|", c1);
         return Vector4(NAN, NAN, NAN, NAN);
     }
     if (r0 < 0 || r0 >= hmap->get_map_depth() || r1 < 0 || r1 >= hmap->get_map_depth()) {
+        UtilityFunctions::print("z: ", z, " :: ", r0, "|", r1);
         return Vector4(NAN, NAN, NAN, NAN);
     }
 
     // convert (x, z) world coords that are passed in to the function into local space
-    auto tX = (w - (x - base_x)) - w / 2.0;
-    auto tZ = (d - (z - base_z)) - d / 2.0;
+    // *** Subtract from the width/depth because of noise texture mapping
+    auto tX = (w - (x - base_x)) - w * 0.5;
+    auto tZ = (d - (z - base_z)) - d * 0.5;
     // auto tX = ((x - base_x)) - w / 2.0;
     // auto tZ = ((z - base_z)) - d / 2.0;
 
     // top-left and bottom-right coords in local space
-    auto x0 = c0 * scale - w / 2.0;
-    auto x1 = c1 * scale - w / 2.0;
-    auto z0 = r0 * scale - d / 2.0;
-    auto z1 = r1 * scale - d / 2.0;
+    auto x0 = c0 * scale - w * 0.5;
+    auto x1 = c1 * scale - w * 0.5;
+    auto z0 = r0 * scale - d * 0.5;
+    auto z1 = r1 * scale - d * 0.5;
 
     // find the 3 points that form the triangle (x,z) pas through
     auto s = Vector2(tX, tZ);
@@ -557,6 +573,7 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
     auto y = q0.lerp(q1, t).y;
 
     N = N.normalized() * (is_low_point ? 1.0 : -1.0);
+    // Negate xz because of the noise texture
     return Vector4(-N.x, N.y, -N.z, y);
 }
 
@@ -610,7 +627,6 @@ void GDTerrain::place_grass(Vector2 delta)
         if (horz || vert || ignore_delta) {
             p.x = pos.x + delta.x * (horz ? 1 : 0);
             p.z = pos.z + delta.y * (vert ? 1 : 0);
-            blender->compute_biome_stats(p.x, p.z, R);
             no_hit->set_data(false);
             terrain_normal(p.x, p.z, normal_height, no_hit);
             wh = ((Vector3)normal_height.get("position", Vector3())).y;
@@ -619,10 +635,8 @@ void GDTerrain::place_grass(Vector2 delta)
                 p.y = -1000;
             } else {
                 p.y = wh;
+                blender->compute_biome_stats(p.x, p.z, R);
             }
-            clr = blender->color;
-            clr.a = p.z;
-            mm->set_instance_custom_data(i, clr);
             grass_coords[i] = p;
             nt = t;
             if (!no_hit->get_data() && !whn.is_zero_approx()) {
@@ -637,6 +651,11 @@ void GDTerrain::place_grass(Vector2 delta)
                     p.y = -10000;
                 }
                 nt = nt.scaled_local(Vector3(1, h, 1) * 200);
+            }
+            if (p.y > -1000) {
+                clr = blender->color;
+                clr.a = p.z;
+                mm->set_instance_custom_data(i, clr);
             }
             mm->set_instance_transform(i, nt.translated(p));
         }
@@ -763,6 +782,11 @@ Vector2 GDTerrain::convert_position_to_coord(double x, double y, double cs)
 Vector3 GDTerrain::get_max_height_position()
 {
     return max_height_position;
+}
+
+Vector3 GDTerrain::get_min_height_position()
+{
+    return min_height_position;
 }
 
 PackedVector2Array GDTerrain::get_loaded_chunks_location()

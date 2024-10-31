@@ -61,6 +61,8 @@ protected:
     Vector2 player_position;
     Vector2 player_coord;
     Vector3 max_height_position;
+    Vector3 min_height_position;
+    bool find_bound_coords;
 
     Shader* biome_shader;
     Shader* water_shader;
@@ -92,7 +94,7 @@ public:
     GDTerrain();
     ~GDTerrain();
 
-    void init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width);
+    void init(GDNoiseBlender* b, double cs, double gs, double r, double subdivide, double medium_chunk_width, bool find_bound_coords);
     void set_biome_shader(Shader* biome_shader);
     void set_water_shader(Shader* water_shader);
     void set_water_noise(NoiseTexture2D* water_noise);
@@ -120,6 +122,7 @@ public:
     Vector2 convert_position_to_coord(double x, double y, double cs);
 
     Vector3 get_max_height_position();
+    Vector3 get_min_height_position();
     PackedVector2Array get_loaded_chunks_location();
 
     PackedVector3Array get_chunk_vertices();

@@ -27,7 +27,7 @@ public:
     String get_error();
     void set_error(String err_message);
 
-    void build_from_tokens(std::vector<GDToken> tokens);
+    void build_from_tokens(const std::vector<GDToken>& tokens);
     void build(String expr);
 
     double compute(Dictionary map, Dictionary user_funcs);

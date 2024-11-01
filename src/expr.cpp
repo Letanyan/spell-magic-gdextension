@@ -54,7 +54,7 @@ void GDExpr::build(godot::String expr)
     build_from_tokens(tokens);
 }
 
-void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
+void GDExpr::build_from_tokens(const std::vector<GDToken>& tokens)
 {
     error = "";
     expression = std::vector<GDToken>();
@@ -67,14 +67,14 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
         i += 1;
 
         if (token.kind == tkNUMBER) {
-            expression.push_back(token);
+            expression.push_back(std::move(token));
         } else if (token.kind == tkFUNC || token.kind == tkVAR) {
-            operators.push_back(token);
+            operators.push_back(std::move(token));
         } else if (token.kind == tkOP) {
             if (operators.size() > 0) {
                 auto op2 = operators.back();
                 while (op2.kind != tkOPEN && gd_operator_precedes(op2, token)) {
-                    expression.push_back(op2);
+                    expression.push_back(std::move(op2));
                     operators.pop_back();
                     if (operators.size() > 0) {
                         op2 = operators.back();
@@ -83,16 +83,16 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
                     }
                 }
             }
-            operators.push_back(token);
+            operators.push_back(std::move(token));
         } else if (token.kind == tkPREFIX_OP) {
-            operators.push_back(token);
+            operators.push_back(std::move(token));
         } else if (token.kind == tkOPEN) {
-            operators.push_back(token);
+            operators.push_back(std::move(token));
         } else if (token.kind == tkCLOSE) {
             if (operators.size() > 0) {
                 auto op2 = operators.back();
                 while (op2.kind != tkOPEN) {
-                    expression.push_back(op2);
+                    expression.push_back(std::move(op2));
                     operators.pop_back();
                     if (operators.size() > 0) {
                         op2 = operators.back();
@@ -102,25 +102,25 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
                 }
                 if (operators.size() <= 0) {
                     error = "Missing Opening Paren";
-                    expression.push_back(GDToken(tkERROR, "Missing Opening Paren"));
+                    expression.emplace_back(tkERROR, "Missing Opening Paren");
                     return;
                 }
                 operators.pop_back();
                 if (operators.size() > 0 && (operators.back().kind == tkFUNC || operators.back().kind == tkVAR)) {
                     auto op = operators.back();
                     operators.pop_back();
-                    expression.push_back(op);
+                    expression.push_back(std::move(op));
                 }
             } else {
                 error = "Missing Opening Paren";
-                expression.push_back(GDToken(tkERROR, "Missing Opening Paren"));
+                expression.emplace_back(tkERROR, "Missing Opening Paren");
                 return;
             }
         } else if (token.kind == tkCOMMA) {
             if (operators.size() > 0) {
                 auto op = operators.back();
                 while (op.kind != tkOPEN) {
-                    expression.push_back(op);
+                    expression.push_back(std::move(op));
                     operators.pop_back();
                     if (operators.size() > 0) {
                         op = operators.back();
@@ -137,10 +137,10 @@ void GDExpr::build_from_tokens(std::vector<GDToken> tokens)
         operators.pop_back();
         if (op.kind == tkOPEN) {
             error = "Missing Closing Paren";
-            expression.push_back(GDToken(tkERROR, "Missing Closing Paren"));
+            expression.emplace_back(tkERROR, "Missing Closing Paren");
             return;
         }
-        expression.push_back(op);
+        expression.push_back(std::move(op));
     }
 }
 
@@ -590,7 +590,7 @@ bool vector_contains_string(std::vector<godot::String>* vec, godot::String needl
     return false;
 }
 
-void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result, Dictionary map, std::vector<String>* chain)
+void bake_into_vector(const std::vector<GDToken>& tokens, std::vector<GDToken>* result, Dictionary map, std::vector<String>* chain)
 {
     auto buffer = std::vector<GDToken>();
     for (auto& e : tokens) {
@@ -599,21 +599,21 @@ void bake_into_vector(std::vector<GDToken> tokens, std::vector<GDToken>* result,
             if (sub_expr.length() > 0) {
                 auto sub_tokens = godot::tokenize("(" + sub_expr + ")");
                 if (vector_contains_string(chain, e.raw)) {
-                    result->push_back(GDToken(tkNUMBER, "0")); // FIXME: use emplace_back to avoid copy
+                    result->emplace_back(tkNUMBER, "0"); // FIXME: use emplace_back to avoid copy
                 } else {
-                    chain->push_back(e.raw);
+                    chain->emplace_back(e.raw);
                     bake_into_vector(sub_tokens, &buffer, map, chain);
                     chain->pop_back();
                 }
             } else {
-                buffer.push_back(e);
+                buffer.push_back(std::move(e));
             }
         } else {
-            buffer.push_back(e);
+            buffer.push_back(std::move(e));
         }
     }
     for (auto& e : buffer) {
-        result->push_back(e); // FIXME: use std::move
+        result->push_back(std::move(e)); // FIXME: use std::move
     }
 }
 

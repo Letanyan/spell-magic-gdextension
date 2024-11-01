@@ -110,7 +110,7 @@ String GDExprTree::format_as_expression()
     return format_as_expression_helper(this);
 }
 
-GDExprTree* build_right_tree(std::vector<GDToken> tokens, int& cursor)
+GDExprTree* build_right_tree(const std::vector<GDToken>& tokens, int& cursor)
 {
     GDExprTree* left = new GDExprTree(tokens[cursor++]);
     if (tokens[cursor].kind == tkOP) {
@@ -122,7 +122,7 @@ GDExprTree* build_right_tree(std::vector<GDToken> tokens, int& cursor)
     }
 }
 
-GDExprTree* make_single_binary_tree(GDExprTree* left, std::vector<GDToken> tokens, int& cursor)
+GDExprTree* make_single_binary_tree(GDExprTree* left, const std::vector<GDToken>& tokens, int& cursor)
 {
     GDToken op = tokens[cursor++];
     if (op.kind == tkOP) {
@@ -133,7 +133,7 @@ GDExprTree* make_single_binary_tree(GDExprTree* left, std::vector<GDToken> token
     }
 }
 
-GDExprTree* build_left_tree(std::vector<GDToken> tokens, int& cursor)
+GDExprTree* build_left_tree(const std::vector<GDToken>& tokens, int& cursor)
 {
     GDExprTree* left = new GDExprTree(tokens[cursor++]);
 
@@ -148,7 +148,7 @@ GDExprTree* build_left_tree(std::vector<GDToken> tokens, int& cursor)
     return left;
 }
 
-GDExprTree* godot::parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens, int& cursor)
+GDExprTree* godot::parse_sub_expr_tree(GDToken next, const std::vector<GDToken>& tokens, int& cursor)
 {
     GDExprTree* result;
     if (next.kind == tkOPEN) {
@@ -169,7 +169,7 @@ GDExprTree* godot::parse_sub_expr_tree(GDToken next, std::vector<GDToken> tokens
     return result;
 }
 
-GDExprTree* godot::parse_binary_tree(GDToken op, GDExprTree* left, std::vector<GDToken> tokens, int& cursor)
+GDExprTree* godot::parse_binary_tree(GDToken op, GDExprTree* left, const std::vector<GDToken>& tokens, int& cursor)
 {
     auto prec = gd_operator_precedence(op);
     if (gd_operator_is_right_associative(op)) {
@@ -179,7 +179,7 @@ GDExprTree* godot::parse_binary_tree(GDToken op, GDExprTree* left, std::vector<G
     return new GDExprTree(op, left, right);
 }
 
-GDExprTree* godot::parse_expr_tree(std::vector<GDToken> tokens, int& cursor, int min_prec)
+GDExprTree* godot::parse_expr_tree(const std::vector<GDToken>& tokens, int& cursor, int min_prec)
 {
     GDToken next_token = tokens[cursor++];
     GDExprTree* left_node = parse_sub_expr_tree(next_token, tokens, cursor);
@@ -299,7 +299,7 @@ GDExprTree* expr_tree_constant_folding(GDExprTree* tree)
     return tree;
 }
 
-String godot::optimize(std::vector<GDToken> tokens)
+String godot::optimize(const std::vector<GDToken>& tokens)
 {
     int cursor = 0;
     auto tree = parse_expr_tree(tokens, cursor, 0);
@@ -310,7 +310,7 @@ String godot::optimize(std::vector<GDToken> tokens)
     return result;
 }
 
-String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
+String godot::constant_folding(const std::vector<GDToken>& expression, Dictionary map)
 {
     // parameters are in reverse order. For example the first popped var is the last parameter:
     // f(..., z, ..., c, b, a)
@@ -320,15 +320,15 @@ String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
     if (tape_index < 0) {            \
         return String("");           \
     }                                \
-    auto name = tape[tape_index];
+    auto name = std::move(tape[tape_index]);
 
 #undef PUSH_VAR
-#define PUSH_VAR(name)               \
-    if (tape_index == tape.size()) { \
-        tape.push_back(name);        \
-    } else {                         \
-        tape[tape_index] = name;     \
-    }                                \
+#define PUSH_VAR(name)                      \
+    if (tape_index == tape.size()) {        \
+        tape.push_back(std::move(name));    \
+    } else {                                \
+        tape[tape_index] = std::move(name); \
+    }                                       \
     tape_index += 1;
 
     auto tape = std::vector<GDToken>();
@@ -377,8 +377,46 @@ String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
                     value.raw = UtilityFunctions::str(temp);
                 }
                 value.kind = tkNUMBER;
-                UtilityFunctions::print("push --> ", value.raw);
                 PUSH_VAR(value)
+            } else if (a.kind == tkNUMBER && b.kind == tkVAR) {
+                double temp = a.raw.to_float();
+                if (e.raw == "+" && UtilityFunctions::is_zero_approx(temp)) {
+                    PUSH_VAR(b)
+                } else if (e.raw == "*" && UtilityFunctions::is_equal_approx(temp, 1.0)) {
+                    PUSH_VAR(b)
+                } else if (e.raw == "^" && UtilityFunctions::is_equal_approx(temp, 1.0)) {
+                    auto value = GDToken();
+                    value.kind = tkNUMBER;
+                    value.raw = String("1");
+                    PUSH_VAR(value)
+                } else if (e.raw == "^" && UtilityFunctions::is_zero_approx(temp)) {
+                    auto value = GDToken();
+                    value.kind = tkNUMBER;
+                    value.raw = String("0");
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(a)
+                    PUSH_VAR(b)
+                    PUSH_VAR(e)
+                }
+            } else if (a.kind == tkVAR && b.kind == tkNUMBER) {
+                double temp = b.raw.to_float();
+                if ((e.raw == "+" || e.raw == "-") && UtilityFunctions::is_zero_approx(temp)) {
+                    PUSH_VAR(a)
+                } else if (e.raw == "*" && UtilityFunctions::is_equal_approx(temp, 1.0)) {
+                    PUSH_VAR(a)
+                } else if (e.raw == "^" && UtilityFunctions::is_equal_approx(temp, 1.0)) {
+                    PUSH_VAR(a)
+                } else if (e.raw == "^" && UtilityFunctions::is_zero_approx(temp)) {
+                    auto value = GDToken();
+                    value.kind = tkNUMBER;
+                    value.raw = String("1");
+                    PUSH_VAR(value)
+                } else {
+                    PUSH_VAR(a)
+                    PUSH_VAR(b)
+                    PUSH_VAR(e)
+                }
             } else {
                 PUSH_VAR(a)
                 PUSH_VAR(b)
@@ -827,11 +865,17 @@ String godot::constant_folding(std::vector<GDToken> expression, Dictionary map)
     return rpn_to_infix(tape);
 }
 
-String godot::rpn_to_infix(std::vector<GDToken> tokens)
+String godot::rpn_to_infix(const std::vector<GDToken>& tokens)
 {
     struct Sf {
         int prec;
         String expr;
+
+        Sf(int p, String e)
+            : expr(e)
+            , prec(p)
+        {
+        }
     };
     auto stack = std::vector<Sf>();
     for (auto tok : tokens) {
@@ -839,9 +883,9 @@ String godot::rpn_to_infix(std::vector<GDToken> tokens)
             if (stack.size() <= 1) {
                 return String("");
             }
-            auto rhs = stack[stack.size() - 1];
+            auto rhs = std::move(stack[stack.size() - 1]);
             stack.pop_back();
-            auto lhs = stack[stack.size() - 1];
+            auto lhs = std::move(stack[stack.size() - 1]);
             auto tok_prec = godot::gd_operator_precedence(tok);
             if (lhs.prec < tok_prec || (lhs.prec == tok_prec && godot::gd_operator_is_right_associative(tok))) {
                 lhs.expr = String("(") + lhs.expr + String(")");
@@ -855,19 +899,19 @@ String godot::rpn_to_infix(std::vector<GDToken> tokens)
                 lhs.expr += rhs.expr;
                 lhs.prec = tok_prec;
             }
-            stack[stack.size() - 1] = lhs;
+            stack[stack.size() - 1] = std::move(lhs);
         } else if (tok.kind == tkPREFIX_OP) {
             if (stack.size() <= 0) {
                 return String("");
             }
-            auto rhs = stack[stack.size() - 1];
+            auto rhs = std::move(stack[stack.size() - 1]);
             if (rhs.prec < 1000) {
                 rhs.expr = "-(" + rhs.expr + ")";
             } else {
                 rhs.expr = "-" + rhs.expr;
             }
             rhs.prec = 1000;
-            stack[stack.size() - 1] = rhs;
+            stack[stack.size() - 1] = std::move(rhs);
         } else if (tok.kind == tkFUNC) {
             int arg_count = godot::number_of_func_arguments(tok.raw);
             if (stack.size() < arg_count) {
@@ -878,7 +922,7 @@ String godot::rpn_to_infix(std::vector<GDToken> tokens)
             String minor_result = tok.raw + "(";
             int i = 0;
             while (i < arg_count) {
-                auto arg = stack[stack.size() - arg_count + i];
+                auto arg = std::move(stack[stack.size() - arg_count + i]);
                 if (i < arg_count - 1) {
                     minor_result += arg.expr + ", ";
                 } else {
@@ -891,15 +935,15 @@ String godot::rpn_to_infix(std::vector<GDToken> tokens)
                 stack.pop_back();
                 i += 1;
             }
-            Sf n;
-            n.prec = 1000;
-            n.expr = minor_result;
-            stack.push_back(n);
+            // Sf n;
+            // n.prec = 1000;
+            // n.expr = minor_result;
+            stack.emplace_back(1000, minor_result);
         } else {
-            Sf n;
-            n.prec = 1000;
-            n.expr = tok.raw;
-            stack.push_back(n);
+            // Sf n;
+            // n.prec = 1000;
+            // n.expr = tok.raw;
+            stack.emplace_back(1000, tok.raw);
         }
     }
     if (stack.size() > 0) {

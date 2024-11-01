@@ -17,10 +17,6 @@ GDToken::GDToken(GDTokenKind _kind, godot::String _raw)
     raw = _raw;
 }
 
-GDToken::~GDToken()
-{
-}
-
 bool is_func(godot::String name)
 {
     if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan" || name == "atan2") {
@@ -225,7 +221,7 @@ std::vector<GDToken> godot::tokenize(godot::String expr)
     return result;
 }
 
-String godot::build_string_from_tokens(std::vector<GDToken> tokens)
+String godot::build_string_from_tokens(const std::vector<GDToken>& tokens)
 {
     String result = "";
     for (auto& t : tokens) {

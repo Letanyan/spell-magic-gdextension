@@ -131,7 +131,7 @@ public:
     float get_noise_scale();
 
     Vector4 height_at_position(CollisionShape3D* collision, double x, double z);
-    void terrain_normal(double x, double z, Dictionary result, GDInOut* no_hit = NULL);
+    bool terrain_normal(double x, double z, Dictionary result);
     TypedArray<Node3D> get_loaded_chunks();
 };
 

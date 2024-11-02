@@ -66,6 +66,8 @@ void GDNoiseBlender::_bind_methods()
 
 GDNoiseBlender::GDNoiseBlender()
 {
+    biome = 0;
+
     terrains = std::vector<MyNoise>();
     curves = std::vector<Curve*>();
     locations = PackedVector2Array();

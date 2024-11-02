@@ -45,7 +45,7 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_noise_scale"), &GDTerrain::get_noise_scale);
 
     ClassDB::bind_method(D_METHOD("height_at_position", "collision", "x", "z"), &GDTerrain::height_at_position);
-    ClassDB::bind_method(D_METHOD("terrain_normal", "x", "z", "no_hit"), &GDTerrain::terrain_normal, DEFVAL(nullptr));
+    ClassDB::bind_method(D_METHOD("terrain_normal", "x", "z"), &GDTerrain::terrain_normal);
     ClassDB::bind_method(D_METHOD("get_loaded_chunks"), &GDTerrain::get_loaded_chunks);
 }
 
@@ -68,6 +68,8 @@ void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double s
     this->medium_chunk_width = medium_chunk_width;
     this->find_bound_coords = find_bound_coords;
     chunk_vertices = PackedVector3Array();
+    max_height_position = Vector3(-INFINITY, -INFINITY, -INFINITY);
+    min_height_position = Vector3(INFINITY, INFINITY, INFINITY);
 }
 
 void GDTerrain::set_biome_shader(Shader* biome_shader)
@@ -223,7 +225,7 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, int64_t
                 removed_locations.append(loaded_chunks_location[i]);
                 loaded_chunks_location.set(i, loc);
                 chunk_indexed_loaded_chunks.erase(loaded_chunks_location[i]);
-                loaded_biomes.erase(medium_chunks_location[i]);
+                loaded_biomes.erase(loaded_chunks_location[i]);
             } break;
             case lciMED: {
                 removed_locations.append(medium_chunks_location[i]);
@@ -577,7 +579,7 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
     return Vector4(-N.x, N.y, -N.z, y);
 }
 
-void GDTerrain::terrain_normal(double x, double z, Dictionary result, GDInOut* no_hit)
+bool GDTerrain::terrain_normal(double x, double z, Dictionary result)
 {
     auto coord = convert_position_to_coord(x, z, chunk_size) * chunk_size;
     CollisionShape3D* collision = (CollisionShape3D*)(Object*)chunk_indexed_loaded_chunks.get(coord, nullptr);
@@ -585,10 +587,9 @@ void GDTerrain::terrain_normal(double x, double z, Dictionary result, GDInOut* n
         auto V = GDTerrain::height_at_position(collision, x, z);
         result["position"] = Vector3(x, V.w, z);
         result["normal"] = Vector3(V.x, V.y, V.z);
+        return true;
     } else {
-        if (no_hit != NULL) {
-            no_hit->set_data(true);
-        }
+        return false;
     }
 }
 
@@ -604,10 +605,9 @@ void GDTerrain::place_grass(Vector2 delta)
     }
 
     auto mm = grass_mesh->get_multimesh();
-    auto no_hit = new GDInOut();
-    no_hit->set_data(false);
     auto t = Transform3D(Basis(), Vector3());
     t = t.scaled_local(Vector3(1, 1, 1) * 200);
+    auto hit_terrain = false;
     auto nt = t;
     auto horz = false;
     auto vert = false;
@@ -616,7 +616,6 @@ void GDTerrain::place_grass(Vector2 delta)
     auto whn = Vector3();
     auto wh = 0.0;
     auto clr = Color(1, 1, 1, 1);
-    auto nav = new GDNavigator();
     auto R = chunk_size / (float)((int)(chunk_size * subdivide_percent));
     auto normal_height = Dictionary();
     for (int i = 0; i < mm->get_visible_instance_count(); i++) {
@@ -627,42 +626,35 @@ void GDTerrain::place_grass(Vector2 delta)
         if (horz || vert || ignore_delta) {
             p.x = pos.x + delta.x * (horz ? 1 : 0);
             p.z = pos.z + delta.y * (vert ? 1 : 0);
-            no_hit->set_data(false);
-            terrain_normal(p.x, p.z, normal_height, no_hit);
+            hit_terrain = terrain_normal(p.x, p.z, normal_height);
             wh = ((Vector3)normal_height.get("position", Vector3())).y;
             whn = normal_height.get("normal", Vector3());
-            if (no_hit->get_data() || wh < sea_level || whn.distance_to(Vector3(0, 1, 0)) > 1 / sqrt(2.0)) {
-                p.y = -1000;
+            nt = t;
+            if (!hit_terrain || whn.distance_to(Vector3(0, 1, 0)) > 1 / sqrt(2.0)) {
+                p.y = -10000;
             } else {
                 p.y = wh;
                 blender->compute_biome_stats(p.x, p.z, R);
-            }
-            grass_coords[i] = p;
-            nt = t;
-            if (!no_hit->get_data() && !whn.is_zero_approx()) {
-                auto new_y = whn.normalized();
-                auto basis = nt.get_basis();
-                basis.set_column(1, new_y);
-                basis.set_column(0, -basis.get_column(2).cross(new_y));
-                nt.set_basis(basis.orthonormalized());
-                nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
                 auto h = blender->grass_height(blender->biome, -p.x, -p.y); // use p.y for more consistency
                 if (h == 0) {
                     p.y = -10000;
+                } else {
+                    auto new_y = whn.normalized();
+                    auto basis = nt.get_basis();
+                    basis.set_column(1, new_y);
+                    basis.set_column(0, -basis.get_column(2).cross(new_y));
+                    nt.set_basis(basis.orthonormalized());
+                    nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
+                    nt = nt.scaled_local(Vector3(1, h, 1) * 200);
+                    clr = blender->color;
+                    clr.a = p.z;
+                    mm->set_instance_custom_data(i, clr);
                 }
-                nt = nt.scaled_local(Vector3(1, h, 1) * 200);
             }
-            if (p.y > -1000) {
-                clr = blender->color;
-                clr.a = p.z;
-                mm->set_instance_custom_data(i, clr);
-            }
+            grass_coords[i] = p;
             mm->set_instance_transform(i, nt.translated(p));
         }
     }
-
-    delete no_hit;
-    delete nav;
 }
 
 void GDTerrain::init_grass()

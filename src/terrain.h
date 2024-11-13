@@ -43,6 +43,17 @@ class GDTerrain : public RefCounted {
     bool first_run;
 
 private:
+    struct ChunkUpdateParameters {
+        Node3D* node;
+        int64_t index;
+        size_t chunk_index;
+        double x;
+        double y;
+        double cs;
+        double r;
+        double subdivide;
+    };
+
 protected:
     static void _bind_methods();
 
@@ -84,6 +95,8 @@ protected:
     MultiMeshInstance3D* grass_mesh;
     PackedVector3Array grass_coords;
 
+    std::vector<ChunkUpdateParameters> chunk_update_queue;
+
 public:
     enum LoadedChunkIndex {
         lciMAIN,
@@ -112,6 +125,8 @@ public:
     void update_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide);
     void update_water_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide);
     void update_chunk_with_size(Node3D* node, int64_t index, size_t chunk_index, double x, double y, double cs, double r, double subdivide);
+    bool has_chunks_to_update();
+    void update_chunk_in_queue(int start_time, int limit);
     void update_environment(double x, double y);
     void update_chunk_environment(Node3D* node);
     void place_grass(Vector2 delta);

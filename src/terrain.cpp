@@ -5,6 +5,7 @@
 #include "noise_blender.h"
 
 #include <godot_cpp/classes/geometry2d.hpp>
+#include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 
 using namespace godot;
@@ -31,6 +32,8 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("update_chunk_with_size", "node", "index", "chunk_index", "x", "y", "size", "r", "subdivide"), &GDTerrain::update_chunk_with_size);
     ClassDB::bind_method(D_METHOD("update_environment", "x", "y"), &GDTerrain::update_environment);
     ClassDB::bind_method(D_METHOD("update_chunk_environment", "node"), &GDTerrain::update_chunk_environment);
+    ClassDB::bind_method(D_METHOD("has_chunks_to_update"), &GDTerrain::has_chunks_to_update);
+    ClassDB::bind_method(D_METHOD("update_chunk_in_queue"), &GDTerrain::update_chunk_in_queue);
     ClassDB::bind_method(D_METHOD("place_grass", "delta"), &GDTerrain::place_grass);
     ClassDB::bind_method(D_METHOD("init_grass"), &GDTerrain::init_grass);
     ClassDB::bind_method(D_METHOD("hide_water", "y", "force_update"), &GDTerrain::hide_water);
@@ -72,6 +75,8 @@ void GDTerrain::init(GDNoiseBlender* b, double cs, double gs, double r, double s
     chunk_vertices = PackedVector3Array();
     max_height_position = Vector3(-INFINITY, -INFINITY, -INFINITY);
     min_height_position = Vector3(INFINITY, INFINITY, INFINITY);
+    chunk_update_queue = std::vector<ChunkUpdateParameters>();
+    chunk_update_queue.reserve(medium_chunk_width * 2);
 }
 
 void GDTerrain::set_biome_shader(Shader* biome_shader)
@@ -240,7 +245,20 @@ Dictionary GDTerrain::update_chunks_with_size(TypedArray<Node3D> chunks, int64_t
             }
             updated_locations.append(loc);
             if (!should_exclude_update) {
-                update_chunk_with_size((Node3D*)(Object*)chunks[i], index, i, loc.x, loc.y, cs, r, subdivide);
+                if (index == lciMAIN) {
+                    update_chunk_with_size((Node3D*)(Object*)chunks[i], index, i, loc.x, loc.y, cs, r, subdivide);
+                } else {
+                    auto params = ChunkUpdateParameters();
+                    params.node = (Node3D*)(Object*)chunks[i];
+                    params.index = index;
+                    params.chunk_index = i;
+                    params.x = loc.x;
+                    params.y = loc.y;
+                    params.cs = cs;
+                    params.r = r;
+                    params.subdivide = subdivide;
+                    chunk_update_queue.emplace_back(std::move(params));
+                }
             }
         }
     }
@@ -458,6 +476,24 @@ void GDTerrain::update_chunk_with_size(Node3D* node, int64_t index, size_t chunk
     pos.x = x;
     pos.z = y;
     node->set_position(pos);
+}
+
+bool GDTerrain::has_chunks_to_update()
+{
+    return !chunk_update_queue.empty();
+}
+
+void GDTerrain::update_chunk_in_queue(int start_time, int limit)
+{
+    int duration = Time::get_singleton()->get_ticks_msec() - start_time;
+    int index = chunk_update_queue.size() - 1;
+    while (duration < limit) {
+        auto params = chunk_update_queue[index];
+        index--;
+        update_chunk_with_size(params.node, params.index, params.chunk_index, params.x, params.y, params.cs, params.r, params.subdivide);
+        duration = Time::get_singleton()->get_ticks_msec() - start_time;
+    }
+    chunk_update_queue.resize(index + 1);
 }
 
 void GDTerrain::update_environment(double x, double y)

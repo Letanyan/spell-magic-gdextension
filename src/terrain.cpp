@@ -47,6 +47,8 @@ void GDTerrain::_bind_methods()
     ClassDB::bind_method(D_METHOD("height_at_position", "collision", "x", "z"), &GDTerrain::height_at_position);
     ClassDB::bind_method(D_METHOD("terrain_normal", "x", "z"), &GDTerrain::terrain_normal);
     ClassDB::bind_method(D_METHOD("get_loaded_chunks"), &GDTerrain::get_loaded_chunks);
+    ClassDB::bind_static_method("GDTerrain", D_METHOD("contains_neighbour_point", "collection", "point", "spacing"), &GDTerrain::contains_neighbour_point);
+    ClassDB::bind_method(D_METHOD("group_spawn_points", "coord", "spacing"), &GDTerrain::group_spawn_points);
 }
 
 GDTerrain::GDTerrain()
@@ -582,7 +584,7 @@ Vector4 GDTerrain::height_at_position(CollisionShape3D* collision, double x, dou
 bool GDTerrain::terrain_normal(double x, double z, Dictionary result)
 {
     auto coord = convert_position_to_coord(x, z, chunk_size) * chunk_size;
-    CollisionShape3D* collision = (CollisionShape3D*)(Object*)chunk_indexed_loaded_chunks.get(coord, nullptr);
+    auto collision = (CollisionShape3D*)(Object*)chunk_indexed_loaded_chunks.get(coord, nullptr);
     if (collision != nullptr) {
         auto V = GDTerrain::height_at_position(collision, x, z);
         result["position"] = Vector3(x, V.w, z);
@@ -616,7 +618,7 @@ void GDTerrain::place_grass(Vector2 delta)
     auto whn = Vector3();
     auto wh = 0.0;
     auto clr = Color(1, 1, 1, 1);
-    auto R = chunk_size / (float)((int)(chunk_size * subdivide_percent));
+    auto R = get_noise_scale();
     auto normal_height = Dictionary();
     for (int i = 0; i < mm->get_visible_instance_count(); i++) {
         pos = grass_coords[i];
@@ -799,4 +801,67 @@ PackedInt64Array GDTerrain::get_biomes_map(Vector2 index)
 float GDTerrain::get_noise_scale()
 {
     return chunk_size / (float)((int)(chunk_size * subdivide_percent));
+}
+
+bool GDTerrain::contains_neighbour_point(TypedArray<Vector2> collection, Vector2 point, float spacing)
+{
+    long long pidx = collection.size() - 1;
+    while (pidx >= 0) {
+        if (((Vector2)collection[pidx]).distance_squared_to(point) <= spacing * spacing) {
+            return true;
+        }
+        pidx -= 1;
+    }
+    return false;
+}
+
+Dictionary GDTerrain::group_spawn_points(Vector2 coord, float spacing)
+{
+    auto areas = TypedArray<Array>();
+    auto biomes = TypedArray<int>();
+    auto points = TypedArray<Vector2>();
+    auto b = 0;
+    auto offsetv = coord * chunk_size;
+    auto biome_map = get_biomes_map(offsetv);
+    auto height_map_scale = chunk_size / (float)((int)(chunk_size * subdivide_percent));
+    auto point_offset = Vector2(height_map_scale * 0.5, height_map_scale * 0.5);
+    bool const DEBUG = false;
+    auto found_subsets = std::vector<int>();
+    found_subsets.reserve(2);
+    for (size_t vidx = 0; vidx < chunk_vertices.size(); vidx++) {
+        auto vp = chunk_vertices[vidx];
+        auto p = -Vector2(vp.x, vp.z) + point_offset + offsetv;
+        points.append(p);
+        auto biome = (int)biome_map[b];
+        found_subsets.clear();
+        for (size_t i = 0; i < areas.size(); i++) {
+            if ((int)biomes[i] == biome && GDTerrain::contains_neighbour_point(areas[i], p, spacing)) {
+                found_subsets.push_back(i);
+            }
+        }
+        if (found_subsets.empty()) {
+            auto n = TypedArray<Vector2>();
+            n.append(p);
+            areas.append(n);
+            biomes.append(biome);
+        } else if (found_subsets.size() == 1) {
+            ((TypedArray<Vector2>)areas[found_subsets[0]]).append(p);
+        } else {
+            std::sort(found_subsets.begin(), found_subsets.end(), std::greater<int>());
+            auto new_pack = TypedArray<Vector2>();
+            for (size_t sidx = 0; sidx < found_subsets.size(); sidx++) {
+                auto subset = found_subsets[sidx];
+                new_pack.append_array(areas[subset]);
+                areas.remove_at(subset);
+                biomes.remove_at(subset);
+            }
+            areas.append(new_pack);
+            biomes.append(biome);
+        }
+        b++;
+    }
+    auto result = Dictionary();
+    result["points"] = areas;
+    result["biomes"] = biomes;
+    return result;
 }

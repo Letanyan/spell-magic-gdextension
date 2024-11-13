@@ -29,7 +29,11 @@ public:
     GDNavigator();
     ~GDNavigator();
 
-    int popcnt(unsigned int number);
+    static int popcnt(unsigned int number);
+    static Variant rand_entity_from_distribution(float r, Dictionary probs, Variant def);
+    static Variant rand_entity_from_non_relative_distribution(float r, Dictionary probs, Variant def);
+    static void normalise_distribution(Dictionary probs);
+
     float shape_max_bound(Shape3D* shape);
     float shape_height(Shape3D* shape);
     Shape3D* shape_increase(Shape3D* shape, float amount);

@@ -133,6 +133,8 @@ public:
     Vector4 height_at_position(CollisionShape3D* collision, double x, double z);
     bool terrain_normal(double x, double z, Dictionary result);
     TypedArray<Node3D> get_loaded_chunks();
+    static bool contains_neighbour_point(TypedArray<Vector2> collection, Vector2 point, float spacing);
+    Dictionary group_spawn_points(Vector2 coord, float spacing);
 };
 
 }

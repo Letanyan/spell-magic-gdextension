@@ -40,7 +40,6 @@ Color get_color(Ref<Image> img, Vector2 coord)
 
 void GDStyleMat::render_rect(RID canvas_id, Rect2 rect, Texture2D* texture, Vector4 corner_radius, float border_width, float corner_detail)
 {
-    UtilityFunctions::print("rendering");
     auto vertices = PackedVector2Array();
     auto uvs = PackedVector2Array();
     auto colors = PackedColorArray();

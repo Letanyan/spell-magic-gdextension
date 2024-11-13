@@ -21,7 +21,11 @@ using namespace godot;
 
 void GDNavigator::_bind_methods()
 {
-    ClassDB::bind_method(D_METHOD("popcnt", "number"), &GDNavigator::popcnt);
+    ClassDB::bind_static_method("GDNavigator", D_METHOD("popcnt", "number"), &GDNavigator::popcnt);
+    ClassDB::bind_static_method("GDNavigator", D_METHOD("rand_entity_from_distribution", "r", "probs", "default"), &GDNavigator::rand_entity_from_distribution);
+    ClassDB::bind_static_method("GDNavigator", D_METHOD("rand_entity_from_non_relative_distribution", "r", "probs", "default"), &GDNavigator::rand_entity_from_distribution);
+    ClassDB::bind_static_method("GDNavigator", D_METHOD("normalise_distribution", "probs"), &GDNavigator::normalise_distribution);
+
     ClassDB::bind_method(D_METHOD("shape_max_bound", "shape"), &GDNavigator::shape_max_bound);
     ClassDB::bind_method(D_METHOD("shape_height", "shape"), &GDNavigator::shape_height);
     ClassDB::bind_method(D_METHOD("shape_increase", "shape", "amount"), &GDNavigator::shape_increase);
@@ -427,7 +431,7 @@ PackedVector3Array GDNavigator::astar(CollisionObject3D* p, Vector3 target, Shap
             best_distance = current_distance;
             closest_point = current;
         }
-        if (current_distance <= distance) {
+        if (current_distance <= distance + margin_from_obs) {
             if (DEBUG)
                 UtilityFunctions::print("astar: A");
             return reconstruct_path(came_from, current);
@@ -518,4 +522,78 @@ Vector3 GDNavigator::find_target(CollisionObject3D* p, Vector3 target, Shape3D* 
         path.remove_at(0);
     }
     return next;
+}
+
+Variant GDNavigator::rand_entity_from_distribution(float r, Dictionary probs, Variant def)
+{
+    auto keys = probs.keys();
+    if (keys.is_empty()) {
+        return def;
+    }
+    if (keys.size() == 1) {
+        return keys[0];
+    }
+    auto sum = 0.0f;
+    auto values = probs.values();
+    for (size_t i = 0; i < values.size(); i++) {
+        float n = values[i];
+        sum += n;
+    }
+
+    auto base = 0.0f;
+    for (size_t i = 0; i < keys.size(); i++) {
+        auto next_base = base + (float)values[i] / sum;
+        if (r < next_base) {
+            return keys[i];
+        }
+        base = next_base;
+    }
+    return def;
+}
+
+Variant GDNavigator::rand_entity_from_non_relative_distribution(float r, Dictionary probs, Variant def)
+{
+    auto keys = probs.keys();
+    if (keys.is_empty()) {
+        return def;
+    }
+    if (keys.size() == 1) {
+        return keys[0];
+    }
+
+    auto values = probs.values();
+    auto base = 0.0f;
+    for (size_t i = 0; i < keys.size(); i++) {
+        auto next_base = base + (float)values[i];
+        if (r < next_base) {
+            return keys[i];
+        }
+        base = next_base;
+    }
+
+    if (UtilityFunctions::is_equal_approx(base, 1.0)) {
+        UtilityFunctions::push_error("sum of probs must equal 1.0");
+    }
+
+    return def;
+}
+
+void GDNavigator::normalise_distribution(Dictionary probs)
+{
+    auto keys = probs.keys();
+    if (keys.size() == 1) {
+        probs[keys[0]] = 1.0;
+    }
+
+    auto sum = 0.0f;
+    auto values = probs.values();
+    for (size_t i = 0; i < values.size(); i++) {
+        float n = values[i];
+        sum += n;
+    }
+
+    auto base = 0.0f;
+    for (size_t i = 0; i < keys.size(); i++) {
+        probs[keys[i]] = (float)values[i] / sum;
+    }
 }

@@ -55,5 +55,11 @@
         "xtree": "cpp",
         "xutility": "cpp",
         "functional": "cpp"
+    },
+    "files.exclude": {
+        "**/*.rpyc": true,
+        "**/*.rpa": true,
+        "**/*.rpymc": true,
+        "**/cache/": true
     }
 }

@@ -7,9 +7,10 @@
         {
             "type": "lldb",
             "request": "launch",
+            "preLaunchTask": "build",
             "name": "Debug",
-            "program": "${workspaceFolder}/<executable file>",
-            "args": [],
+            "program": "C:\\Program Files (x86)\\Godot\\Godot_v4.3-stable_win64.exe",
+            "args": ["--path", "C:\\Users\\letan\\Documents\\SourceCode\\Spell Magic"],
             "cwd": "${workspaceFolder}"
         }
     ]

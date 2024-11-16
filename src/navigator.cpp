@@ -90,14 +90,14 @@ float GDNavigator::shape_max_bound(Shape3D* shape)
 float GDNavigator::shape_height(Shape3D* shape)
 {
     auto s = (Shape3D*)(Object*)shape;
-    if (dynamic_cast<BoxShape3D*>(s) != nullptr) {
+    if (std::is_same<decltype(s), BoxShape3D*>::value) {
         auto box = dynamic_cast<BoxShape3D*>(s);
         auto y = box->get_size().y;
         return y;
-    } else if (dynamic_cast<SphereShape3D*>(s) != nullptr) {
+    } else if (std::is_same<decltype(s), SphereShape3D*>::value) {
         auto sphere = dynamic_cast<SphereShape3D*>(s);
         return sphere->get_radius() * 2.0;
-    } else if (dynamic_cast<CapsuleShape3D*>(s) != nullptr) {
+    } else if (std::is_same<decltype(s), CapsuleShape3D*>::value) {
         auto capsule = dynamic_cast<CapsuleShape3D*>(s);
         auto h = capsule->get_height();
         return h;
@@ -108,7 +108,7 @@ float GDNavigator::shape_height(Shape3D* shape)
 Shape3D* GDNavigator::shape_increase(Shape3D* shape, float amount)
 {
     auto s = (Shape3D*)*((Shape3D*)(Object*)shape)->duplicate();
-    if (dynamic_cast<BoxShape3D*>(s) != nullptr) {
+    if (std::is_same<decltype(s), BoxShape3D*>::value) {
         auto box = dynamic_cast<BoxShape3D*>(s);
         auto size = box->get_size();
         size.x += amount;
@@ -116,11 +116,11 @@ Shape3D* GDNavigator::shape_increase(Shape3D* shape, float amount)
         size.z += amount;
         box->set_size(size);
         return box;
-    } else if (dynamic_cast<SphereShape3D*>(s) != nullptr) {
+    } else if (std::is_same<decltype(s), SphereShape3D*>::value) {
         auto sphere = dynamic_cast<SphereShape3D*>(s);
         sphere->set_radius(sphere->get_radius() + amount);
         return sphere;
-    } else if (dynamic_cast<CapsuleShape3D*>(s) != nullptr) {
+    } else if (std::is_same<decltype(s), CapsuleShape3D*>::value) {
         auto capsule = dynamic_cast<CapsuleShape3D*>(s);
         capsule->set_height(capsule->get_height() + amount);
         capsule->set_radius(capsule->get_radius() + amount);

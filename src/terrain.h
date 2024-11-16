@@ -22,7 +22,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #ifndef HAS_MEDIUM
-#define HAS_MEDIUM true
+#define HAS_MEDIUM 1
 #endif
 #ifndef MEDIUM_SCALE
 #define MEDIUM_SCALE 1.0
@@ -87,6 +87,8 @@ protected:
     Dictionary chunk_indexed_loaded_chunks;
     PackedVector2Array medium_chunks_location;
     TypedArray<Node3D> medium_chunks;
+    Dictionary medium_biomes;
+    Dictionary chunk_indexed_medium_chunks;
     PackedVector2Array water_chunks_location;
     TypedArray<Node3D> water_chunks;
 
@@ -119,14 +121,15 @@ public:
     TypedArray<Node3D> init_chunks(double x, double y, Mesh* grass_mesh);
     Dictionary update_chunks_with_size(TypedArray<Node3D> chunks, int64_t index, double x, double y, double cs, double r, double subdivide);
     Dictionary update_chunks(double x, double y);
-    MeshInstance3D* create_mesh(double x, double y, double size, double r, double subdivide);
+    MeshInstance3D* create_mesh(double x, double y, double size, double r, double subdivide, int64_t index);
     MeshInstance3D* create_water_mesh(double x, double y, double size);
-    Node3D* create_chunk_with_size(TypedArray<Node3D> chunks, TypedArray<Vector2> locations, double x, double y, double cs, double r, double subdivide, bool is_water);
-    void update_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide);
+    Node3D* create_chunk_with_size(TypedArray<Node3D> chunks, TypedArray<Vector2> locations, double x, double y, double cs, double r, double subdivide, int64_t index);
+    void update_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide, int64_t index);
     void update_water_mesh(MeshInstance3D* mi, double x, double y, double size, double r, double subdivide);
     void update_chunk_with_size(Node3D* node, int64_t index, size_t chunk_index, double x, double y, double cs, double r, double subdivide);
     bool has_chunks_to_update();
-    void update_chunk_in_queue(int start_time, int limit);
+    PackedVector2Array update_chunks_in_queue(int start_time, int limit);
+    void disable_height_map(Vector2 coord, int64_t index, bool disabled);
     void update_environment(double x, double y);
     void update_chunk_environment(Node3D* node);
     void place_grass(Vector2 delta);
@@ -139,9 +142,11 @@ public:
     Vector3 get_max_height_position();
     Vector3 get_min_height_position();
     PackedVector2Array get_loaded_chunks_location();
+    PackedVector2Array get_medium_chunks_location();
 
     PackedVector3Array get_chunk_vertices();
-    PackedInt64Array get_biomes_map(Vector2 index);
+    PackedInt64Array get_loaded_biomes_map(Vector2 index);
+    PackedInt64Array get_medium_biomes_map(Vector2 index);
 
     float get_noise_scale();
 
@@ -149,7 +154,7 @@ public:
     bool terrain_normal(double x, double z, Dictionary result);
     TypedArray<Node3D> get_loaded_chunks();
     static bool contains_neighbour_point(TypedArray<Vector2> collection, Vector2 point, float spacing);
-    Dictionary group_spawn_points(Vector2 coord, float spacing);
+    Dictionary group_spawn_points(Vector2 coord, float spacing, bool is_medium, bool debug);
 };
 
 }

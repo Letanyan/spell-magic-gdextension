@@ -79,12 +79,18 @@ protected:
     Dictionary height_maps; // [Vector2i(coord)]HeightMapShape3D
     Dictionary biome_maps; // [Vector2i(coord)]PackedInt32Array(biome)
 
+    double grass_size;
+    MultiMeshInstance3D* grass_mesh;
+    Mesh* grass_mesh_instance;
+    PackedVector3Array grass_coords;
+
     bool find_bound_coords;
     Vector3 min_height_position;
     Vector3 max_height_position;
     PackedVector3Array chunk_vertices;
 
     Vector2i player_coord;
+    Vector2 player_position;
     GDRingBuffer* chunk_update_queue;
 
     float chunk_width;
@@ -95,12 +101,13 @@ public:
     GDChunker();
     ~GDChunker();
 
-    void init(float chunk_width, float chunk_resolution, float sea_level, GDNoiseBlender* blender, TypedArray<int> lods, bool find_bound_coords);
+    void init(float chunk_width, float chunk_resolution, float sea_level, float grass_size, GDNoiseBlender* blender, TypedArray<int> lods, bool find_bound_coords);
     void set_biome_shader(Shader* biome_shader);
     void set_water_shader(Shader* water_shader);
     void set_water_noise(NoiseTexture2D* water_noise);
     void set_water_ripples_noise(NoiseTexture2D* water_ripples_noise);
     void set_noise_texture(NoiseTexture2D* noise_texture);
+    void set_grass_mesh(Mesh* grass_mesh_instance);
 
     void init_chunks(float x, float z);
     void deinit();
@@ -135,15 +142,16 @@ public:
 
     Vector4 height_at_position(Vector2i coord, double x, double z);
     Dictionary terrain_normal(double x, double z);
+    bool terrain_normal_inplace(double x, double z, Dictionary result);
     float get_noise_scale();
     static bool contains_neighbour_point(const PackedVector2Array& collection, Vector2 point, float spacing);
     Dictionary group_spawn_points(Vector2i coord, float spacing);
 
     void update_environment(double x, double y);
-    // void place_grass(Vector2 delta);
-    // void init_grass();
-    // int count_grass_instances();
-    // void hide_water(float y, bool force_update);
+    void place_grass(Vector2 delta);
+    void init_grass();
+    int count_grass_instances();
+    void hide_water(float y, bool force_update);
 };
 
 }

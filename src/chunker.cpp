@@ -19,11 +19,12 @@ GDChunker::~GDChunker()
 {
 }
 
-void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level, GDNoiseBlender* blender, TypedArray<int> lods, bool find_bound_coords)
+void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level, float grass_size, GDNoiseBlender* blender, TypedArray<int> lods, bool find_bound_coords)
 {
     this->chunk_width = chunk_width;
     this->chunk_resolution = chunk_resolution;
     this->sea_level = sea_level;
+    this->grass_size = grass_size;
     this->lod_levels = lods;
     this->blender = blender;
     this->find_bound_coords = find_bound_coords;
@@ -71,6 +72,11 @@ void GDChunker::set_water_ripples_noise(NoiseTexture2D* water_ripples_noise)
 void GDChunker::set_noise_texture(NoiseTexture2D* noise_texture)
 {
     this->noise_texture = noise_texture;
+}
+
+void GDChunker::set_grass_mesh(Mesh* grass_mesh_instance)
+{
+    this->grass_mesh_instance = grass_mesh_instance;
 }
 
 void GDChunker::init_chunks(float x, float z)
@@ -156,6 +162,19 @@ void GDChunker::init_chunks(float x, float z)
         res *= 0.5;
         level += 1;
     }
+
+    if (HAS_GRASS && grass_size > 0.0) {
+        auto gm = new MultiMesh();
+        gm->set_transform_format(MultiMesh::TRANSFORM_3D);
+        gm->set_use_custom_data(true);
+        // gm->set_instance_count(32175);
+        gm->set_instance_count(count_grass_instances());
+        gm->set_visible_instance_count(0);
+        gm->set_mesh(grass_mesh_instance);
+        this->grass_mesh = new MultiMeshInstance3D();
+        this->grass_mesh->set_multimesh(gm);
+        this->grass_mesh->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
+    }
 }
 
 void GDChunker::deinit()
@@ -195,6 +214,7 @@ void GDChunker::set_world(Node3D* world)
             world->add_child(body);
         }
     }
+    world->add_child(this->grass_mesh);
 }
 
 TypedArray<RID> GDChunker::create_mesh(float size, float res)
@@ -892,7 +912,7 @@ Vector4 GDChunker::height_at_position(Vector2i coord, double x, double z)
     // var scale := height_map_scale(0 if lod < track_biomes_upto_lod else lod)
     // var pos := chunk_positions[coord] as Vector2
     if (!height_maps.has(coord)) {
-        UtilityFunctions::print(coord, " : ", x, ", ", z, " | ", height_maps.size());
+        // UtilityFunctions::print(coord, " : ", x, ", ", z, " | ", height_maps.size());
         return Vector4(NAN, NAN, NAN, NAN);
     }
 
@@ -1019,6 +1039,18 @@ Dictionary GDChunker::terrain_normal(double x, double z)
     return result;
 }
 
+bool GDChunker::terrain_normal_inplace(double x, double z, Dictionary result)
+{
+    auto coord = convert_position_to_coord(x, z);
+    auto V = height_at_position(coord, x, z);
+    if (V.is_finite()) {
+        result["position"] = Vector3(x, V.w, z);
+        result["normal"] = Vector3(V.x, V.y, V.z);
+        return true;
+    }
+    return false;
+}
+
 float GDChunker::get_noise_scale()
 {
     // return chunk_width / (subdivisions(resoultion(0)) + 1)
@@ -1091,6 +1123,147 @@ Dictionary GDChunker::group_spawn_points(Vector2i coord, float spacing)
 
 void GDChunker::update_environment(double x, double y)
 {
+    auto old_position = player_position;
+    player_position = Vector2(x, y);
+    auto delta = player_position - old_position;
+    place_grass(Vector2(grass_size * UtilityFunctions::signf(delta.x) * 2, grass_size * UtilityFunctions::signf(delta.y) * 2));
+}
+
+void GDChunker::place_grass(Vector2 delta)
+{
+    if (!HAS_GRASS) {
+        return;
+    }
+    auto ignore_delta = false;
+    if (grass_coords.is_empty()) {
+        init_grass();
+        ignore_delta = true;
+    }
+
+    auto mm = grass_mesh->get_multimesh();
+    auto t = Transform3D(Basis(), Vector3());
+    t = t.scaled_local(Vector3(1, 1, 1) * 200);
+    auto hit_terrain = false;
+    auto nt = t;
+    auto horz = false;
+    auto vert = false;
+    auto pos = Vector3();
+    auto p = Vector3();
+    auto whn = Vector3();
+    auto wh = 0.0;
+    auto clr = Color(1, 1, 1, 1);
+    auto R = get_noise_scale();
+    auto normal_height = Dictionary();
+    normal_height["position"] = Vector3();
+    normal_height["normal"] = Vector3();
+    for (int i = 0; i < mm->get_visible_instance_count(); i++) {
+        pos = grass_coords[i];
+        horz = pos.x > player_position.x + grass_size || pos.x < player_position.x - grass_size;
+        vert = pos.z > player_position.y + grass_size || pos.z < player_position.y - grass_size;
+
+        if (horz || vert || ignore_delta) {
+            p.x = pos.x + delta.x * (horz ? 1 : 0);
+            p.z = pos.z + delta.y * (vert ? 1 : 0);
+            hit_terrain = terrain_normal_inplace(p.x, p.z, normal_height);
+            wh = ((Vector3)normal_height["position"]).y;
+            whn = normal_height["normal"];
+            nt = t;
+            if (!hit_terrain || whn.distance_to(Vector3(0, 1, 0)) > 1 / sqrt(2.0)) {
+                p.y = -10000;
+            } else {
+                p.y = wh;
+                blender->compute_biome_stats(p.x, p.z, R);
+                auto h = blender->grass_height(blender->biome, -p.x, -p.y); // use p.y for more consistency
+                if (h == 0) {
+                    p.y = -10000;
+                } else {
+                    auto new_y = whn.normalized();
+                    auto basis = nt.get_basis();
+                    basis.set_column(1, new_y);
+                    basis.set_column(0, -basis.get_column(2).cross(new_y));
+                    nt.set_basis(basis.orthonormalized());
+                    nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
+                    nt = nt.scaled_local(Vector3(1, h, 1) * 200);
+                    clr = blender->color;
+                    clr.a = p.z;
+                    mm->set_instance_custom_data(i, clr);
+                }
+            }
+            grass_coords[i] = p;
+            mm->set_instance_transform(i, nt.translated(p));
+        }
+    }
+}
+
+void GDChunker::init_grass()
+{
+    if (!HAS_GRASS) {
+        return;
+    }
+    auto mm = grass_mesh->get_multimesh();
+    auto i = 0;
+    UtilityFunctions::seed(0);
+    const int R = 4;
+    auto grass_store = std::vector<Vector3>();
+    for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
+        for (int _Y = -grass_size; _Y < grass_size + 1; _Y += R) {
+            auto x = _X + ((_Y / R) % 2 == 0 ? 1 : 0) * R + player_position.x;
+            auto y = _Y + player_position.y;
+            for (int r = 0; r < R + 1; r += 2) {
+                auto a = 0.0;
+                while (a < Math_PI * 2) {
+                    a += Math_PI / 4.0 * (1.0 / (floor(r / 4.0) + 1));
+                    auto nx = cos(a) * r + x;
+                    auto ny = sin(a) * r + y;
+                    auto is_top_left = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x - R, y - R), R);
+                    auto is_top_right = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x + R, y - R), R);
+                    if (is_top_left || is_top_right) {
+                        continue;
+                    }
+                    auto p = Vector3(nx, 1000, ny) + Vector3(UtilityFunctions::randf() - 0.5, 0, UtilityFunctions::randf() - 0.5);
+                    grass_store.push_back(p);
+                    i += 1;
+                    if (r == 0) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    for (auto& v : grass_store) {
+        grass_coords.append(v);
+    }
+    mm->set_visible_instance_count(i);
+}
+
+int GDChunker::count_grass_instances()
+{
+    const int R = 4;
+    int i = 0;
+    for (int _X = -grass_size; _X < grass_size + 1; _X += R * 2) {
+        for (int _Y = -grass_size; _Y < grass_size + 1; _Y += R) {
+            auto x = _X + ((_Y / R) % 2 == 0 ? 1 : 0) * R;
+            auto y = _Y;
+            for (int r = 0; r < R + 1; r += 2) {
+                auto a = 0.0;
+                while (a < Math_PI * 2) {
+                    a += Math_PI / 4.0 * (1.0 / (floor(r / 4.0) + 1));
+                    auto nx = cos(a) * r + x;
+                    auto ny = sin(a) * r + y;
+                    auto is_top_left = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x - R, y - R), R);
+                    auto is_top_right = Geometry2D::get_singleton()->is_point_in_circle(Vector2(nx, ny), Vector2(x + R, y - R), R);
+                    if (is_top_left || is_top_right) {
+                        continue;
+                    }
+                    i += 1;
+                    if (r == 0) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return UtilityFunctions::ceili(i * 1.1);
 }
 
 void GDChunker::_bind_methods()
@@ -1102,6 +1275,7 @@ void GDChunker::_bind_methods()
     ClassDB::bind_method(D_METHOD("set_water_noise", "water_noise"), &GDChunker::set_water_noise);
     ClassDB::bind_method(D_METHOD("set_water_ripples_noise", "water_ripples_noise"), &GDChunker::set_water_ripples_noise);
     ClassDB::bind_method(D_METHOD("set_noise_texture", "noise_texture"), &GDChunker::set_noise_texture);
+    ClassDB::bind_method(D_METHOD("set_grass_mesh", "mesh"), &GDChunker::set_grass_mesh);
 
     ClassDB::bind_method(D_METHOD("get_noise_scale"), &GDChunker::get_noise_scale);
     ClassDB::bind_method(D_METHOD("get_chunk_vertices"), &GDChunker::get_chunk_vertices);

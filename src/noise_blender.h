@@ -94,6 +94,7 @@ public:
     ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);
     ImageTexture* biome_texture(double x, double y, double w, double h, double scale, int axis);
     ImageTexture* height_texture(PackedFloat32Array data, float w, float h);
+    PackedVector2Array get_locations();
 
     double grass_height(int biome, double x, double y);
 };

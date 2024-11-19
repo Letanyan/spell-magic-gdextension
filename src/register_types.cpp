@@ -1,5 +1,6 @@
 #include "register_types.h"
 
+#include "chunker.h"
 #include "expr.h"
 #include "fast_noise_2.h"
 #include "inout.h"
@@ -27,6 +28,7 @@ void initialize_example_module(ModuleInitializationLevel p_level)
     ClassDB::register_class<GDInOut>();
     ClassDB::register_class<GDTerrain>();
     ClassDB::register_class<GDStyleMat>();
+    ClassDB::register_class<GDChunker>();
     // ClassDB::register_class<FN>();
 }
 

@@ -62,6 +62,8 @@ void GDNoiseBlender::_bind_methods()
     ClassDB::bind_method(D_METHOD("texture", "noise", "x", "y", "w", "h"), &GDNoiseBlender::texture);
     ClassDB::bind_method(D_METHOD("biome_texture", "x", "y", "w", "h", "scale", "axis"), &GDNoiseBlender::biome_texture);
     ClassDB::bind_method(D_METHOD("grass_height", "biome", "x", "y"), &GDNoiseBlender::grass_height);
+    ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale"), &GDNoiseBlender::height_map);
+    ClassDB::bind_method(D_METHOD("get_locations"), &GDNoiseBlender::get_locations);
 }
 
 GDNoiseBlender::GDNoiseBlender()
@@ -114,6 +116,11 @@ double GDNoiseBlender::get_total_distance()
 int GDNoiseBlender::get_biome()
 {
     return biome;
+}
+
+PackedVector2Array GDNoiseBlender::get_locations()
+{
+    return locations;
 }
 
 PackedInt32Array GDNoiseBlender::get_biomes_map()

@@ -47,6 +47,11 @@ void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level,
     this->bodies = Dictionary();
     this->height_maps = Dictionary();
     this->biome_maps = Dictionary();
+
+    grass_size = 1.0;
+    grass_mesh_instance = nullptr;
+    grass_mesh = nullptr;
+    grass_coords = PackedVector3Array();
 }
 
 void GDChunker::set_biome_shader(Shader* biome_shader)
@@ -214,7 +219,9 @@ void GDChunker::set_world(Node3D* world)
             world->add_child(body);
         }
     }
-    world->add_child(this->grass_mesh);
+    if (grass_mesh != nullptr) {
+        world->add_child(this->grass_mesh);
+    }
 }
 
 TypedArray<RID> GDChunker::create_mesh(float size, float res)
@@ -393,7 +400,6 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         auto row = i / w;
         auto col = i % w;
 
-        // FIXME: corners not stitching correctly
         // 	if (row == 0 and edges.y == 1) or (row == w - 1 and edges.y == -1):
         // 		if col % 2 == 1 and is_internal_chunk:
         // 			var oj := w * (w - row - 1) + (w - (col - 1) - 1)
@@ -824,7 +830,8 @@ Vector2i GDChunker::edges_part_of_transition(Vector2i old_coord, Vector2i new_co
         result.x = -1;
     } else if (new_coord.x == value - 1 + saved_player_coord.x) {
         result.x = 1;
-    } else if (new_coord.y == -value + saved_player_coord.y) {
+    }
+    if (new_coord.y == -value + saved_player_coord.y) {
         result.y = -1;
     } else if (new_coord.y == value - 1 + saved_player_coord.y) {
         result.y = 1;

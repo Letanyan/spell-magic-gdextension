@@ -16,6 +16,7 @@ enum GDTokenKind {
     tkCLOSE,
     tkCOMMA,
     tkPREFIX_OP,
+    tkVECTOR,
     tkNONE,
     tkERROR
 };

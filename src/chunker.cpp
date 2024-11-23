@@ -172,6 +172,7 @@ void GDChunker::init_chunks(float x, float z)
         auto gm = new MultiMesh();
         gm->set_transform_format(MultiMesh::TRANSFORM_3D);
         gm->set_use_custom_data(true);
+        gm->set_use_colors(true);
         // gm->set_instance_count(32175);
         gm->set_instance_count(count_grass_instances());
         gm->set_visible_instance_count(0);
@@ -1159,8 +1160,10 @@ void GDChunker::place_grass(Vector2 delta)
     auto whn = Vector3();
     auto wh = 0.0;
     auto clr = Color(1, 1, 1, 1);
+    auto custom = Color(1, 1, 1, 1);
     auto R = get_noise_scale();
     auto normal_height = Dictionary();
+    auto fade_time = (Time::get_singleton()->get_ticks_msec()) / 1000.0 + 0.5;
     normal_height["position"] = Vector3();
     normal_height["normal"] = Vector3();
     for (int i = 0; i < mm->get_visible_instance_count(); i++) {
@@ -1191,9 +1194,11 @@ void GDChunker::place_grass(Vector2 delta)
                     nt.set_basis(basis.orthonormalized());
                     nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
                     nt = nt.scaled_local(Vector3(1, h, 1) * 200);
-                    clr = blender->color;
-                    clr.a = p.z;
-                    mm->set_instance_custom_data(i, clr);
+                    clr.a = fade_time;
+                    custom = blender->color;
+                    custom.a = p.z;
+                    mm->set_instance_color(i, clr);
+                    mm->set_instance_custom_data(i, custom);
                 }
             }
             grass_coords[i] = p;

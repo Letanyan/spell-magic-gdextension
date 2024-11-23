@@ -19,42 +19,42 @@ GDToken::GDToken(GDTokenKind _kind, godot::String _raw)
 
 bool is_func(godot::String name)
 {
-    if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan" || name == "atan2") {
-        return true;
-    }
-    if (name == "sinh" || name == "cosh" || name == "tanh" || name == "asinh" || name == "acosh" || name == "atanh") {
-        return true;
-    }
-    if (name == "inv" || name == "mod" || name == "div" || name == "floor" || name == "ceil" || name == "round") {
-        return true;
-    }
-    if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq" || name == "not") {
-        return true;
-    }
-    if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
-        return true;
-    }
-    if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {
-        return true;
-    }
+    // if (name == "sin" || name == "cos" || name == "tan" || name == "asin" || name == "acos" || name == "atan" || name == "atan2") {
+    //     return true;
+    // }
+    // if (name == "sinh" || name == "cosh" || name == "tanh" || name == "asinh" || name == "acosh" || name == "atanh") {
+    //     return true;
+    // }
+    // if (name == "inv" || name == "mod" || name == "div" || name == "floor" || name == "ceil" || name == "round") {
+    //     return true;
+    // }
+    // if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq" || name == "not") {
+    //     return true;
+    // }
+    // if (name == "lerp" || name == "pow" || name == "log10" || name == "logN" || name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
+    //     return true;
+    // }
+    // if (name == "if" || name == "clamp" || name == "quad" || name == "cubic") {
+    //     return true;
+    // }
     // segments work as follows f(a, b1, b2, ..., bn, c1, c2, ..., cn-1).
     // a is the time parameter. b1...bn are the values to interpolate between
     // c1...cn-1 are the durations between each b-pair values. For example
     // f(a, b1, b2, c1) = f(2, 100, 250, 10) = lerp(a/c1, b1, b2) = lerp(2/10, 100, 250)
     // f(a, b1, b2, b3, c1, c2) = f(2, 100, 250, 50, 1, 4) = lerp((a-c1)/c2, b2, b3) = lerp((2-1)/4 250, 50)
-    if (name == "segment2" || name == "segment3" || name == "segment4" || name == "segment5") {
-        return true;
-    }
-    if (name == "dot2" || name == "dot3" || name == "cross_x" || name == "cross_y" || name == "cross_z") {
-        return true;
-    }
-    if (name == "proj_x" || name == "proj_y" || name == "proj_z" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
-        return true;
-    }
-    if (name == "rot_x" || name == "rot_y" || name == "rot_z") {
-        return true;
-    }
-    return false;
+    // if (name == "segment2" || name == "segment3" || name == "segment4" || name == "segment5") {
+    //     return true;
+    // }
+    // if (name == "dot2" || name == "dot3" || name == "cross_x" || name == "cross_y" || name == "cross_z") {
+    //     return true;
+    // }
+    // if (name == "proj_x" || name == "proj_y" || name == "proj_z" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
+    //     return true;
+    // }
+    // if (name == "rot_x" || name == "rot_y" || name == "rot_z") {
+    //     return true;
+    // }
+    return number_of_func_arguments(name) > 0;
 }
 
 int godot::number_of_func_arguments(godot::String name)
@@ -71,13 +71,22 @@ int godot::number_of_func_arguments(godot::String name)
     if (name == "abs" || name == "sqrt" || name == "cbrt" || name == "sqr" || name == "cube") {
         return 1;
     }
-    if (name == "atan2" || name == "mod" || name == "div" || name == "pow") {
+    if (name == "unit" || name == "cube" || name == "len") {
+        return 1;
+    }
+    if (name == "atan2" || name == "mod" || name == "div" || name == "pow" || name == "len2") {
         return 2;
     }
     if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
         return 2;
     }
+    if (name == "cross" || name == "dot" || name == "proj") {
+        return 2;
+    }
     if (name == "if" || name == "clamp" || name == "lerp" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
+        return 3;
+    }
+    if (name == "rot" || name == "vec" || name == "len3") {
         return 3;
     }
     if (name == "quad" || name == "segment2" || name == "dot2") {
@@ -118,7 +127,9 @@ bool __is_digit___(char c)
 
 bool __is_op__(char c)
 {
-    return c == '+' || c == '-' || c == '/' || c == '*' || c == '^';
+    // we don't include operator ^ because fuck c++ and its bullshit inconsistencies.
+    // c == ^
+    return c == '+' || c == '-' || c == '/' || c == '*' || c == '.';
 }
 
 std::vector<GDToken> godot::tokenize(godot::String expr)
@@ -247,13 +258,14 @@ bool godot::gd_operator_precedes(GDToken op1, GDToken op2)
     if (op1.kind == tkVAR) {
         return true;
     }
-    if ("^" == op1.raw && ("*" == op2.raw || "/" == op2.raw)) {
+    if (("." == op1.raw || "^" == op1.raw) && ("*" == op2.raw || "/" == op2.raw)) {
         return true;
     }
-    if (("^" == op1.raw || "*" == op1.raw || "/" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
+    if (("." == op1.raw || "^" == op1.raw || "*" == op1.raw || "/" == op1.raw) && ("+" == op2.raw || "-" == op2.raw)) {
         return true;
     }
 
+    // handle left association
     if (("*" == op1.raw || "/" == op1.raw) && ("*" == op2.raw || "/" == op2.raw)) {
         return true;
     }
@@ -272,6 +284,9 @@ int godot::gd_operator_precedence(GDToken op)
     }
     if (op.raw == "#") {
         return 1000;
+    }
+    if (op.raw == ".") {
+        return 110;
     }
     if (op.raw == "^") {
         return 100;

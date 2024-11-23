@@ -333,6 +333,7 @@ String godot::constant_folding(const std::vector<GDToken>& expression, Dictionar
 
     auto tape = std::vector<GDToken>();
     tape.reserve(8);
+    auto vector_map = Dictionary();
     long long tape_index = 0;
     for (auto& e : expression) {
         if (e.kind == tkERROR) {
@@ -344,8 +345,13 @@ String godot::constant_folding(const std::vector<GDToken>& expression, Dictionar
         } else if (e.kind == tkVAR) {
             GDToken value = GDToken();
             if (map.has(e.raw)) {
-                value.raw = UtilityFunctions::str(map.get(e.raw, "0"));
-                value.kind = tkNUMBER;
+                auto eraw = map[e.raw];
+                if (eraw.get_type() == Variant::Type::VECTOR3) {
+                    value = e;
+                } else {
+                    value.raw = UtilityFunctions::str(map.get(e.raw, "0"));
+                    value.kind = tkNUMBER;
+                }
             } else {
                 value = e;
             }
@@ -579,9 +585,16 @@ String godot::constant_folding(const std::vector<GDToken>& expression, Dictionar
                         temp = Vector3(c, b, a).normalized().y;
                     } else if (e.raw == "unit_z") {
                         temp = Vector3(c, b, a).normalized().z;
+                    } else if (e.raw == "vec") {
+                        PUSH_VAR(tok_c)
+                        PUSH_VAR(tok_b)
+                        PUSH_VAR(tok_a)
+                        PUSH_VAR(e)
                     }
-                    auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
-                    PUSH_VAR(value)
+                    if (e.raw != "vec") {
+                        auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
+                        PUSH_VAR(value)
+                    }
                 } else {
                     PUSH_VAR(tok_c)
                     PUSH_VAR(tok_b)

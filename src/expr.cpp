@@ -149,7 +149,7 @@ double godot::clerpf(double a, double b, double t)
     return UtilityFunctions::lerpf(a, b, UtilityFunctions::clampf(t, 0.0, 1.0));
 }
 
-double GDExpr::compute(Dictionary map, Dictionary user_funcs)
+Variant GDExpr::compute(Dictionary map, Dictionary user_funcs)
 {
     // parameters are in reverse order. For example the first popped var is the last parameter:
     // f(..., z, ..., c, b, a)
@@ -162,8 +162,31 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
     }                                \
     auto name = tape[tape_index];
 
+#undef BINOP
+#define BINOP(op)                                                     \
+    if (std::isnan(a) && std::isnan(b)) {                             \
+        auto va = (Vector3)vector_map.get(tape_index + 0, Vector3()); \
+        auto vb = (Vector3)vector_map.get(tape_index + 1, Vector3()); \
+        vans = va op vb;                                              \
+        value = NAN;                                                  \
+    } else if (std::isnan(a)) {                                       \
+        auto va = (Vector3)vector_map.get(tape_index, Vector3());     \
+        vans = va op Vector3(b, b, b);                                \
+        value = NAN;                                                  \
+    } else if (std::isnan(b)) {                                       \
+        auto vb = (Vector3)vector_map.get(tape_index, Vector3());     \
+        vans = Vector3(a, a, a) op vb;                                \
+        value = NAN;                                                  \
+    } else {                                                          \
+        value = a op b;                                               \
+        if (std::isnan(value)) {                                      \
+            value = 0.0;                                              \
+        }                                                             \
+    }
+
     auto tape = std::vector<float>();
     tape.reserve(8);
+    auto vector_map = Dictionary();
     long long tape_index = 0;
     for (auto& e : expression) {
         if (e.kind == tkERROR) {
@@ -181,7 +204,16 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
         } else if (e.kind == tkVAR) {
             float value = 0.0;
             if (map.has(e.raw)) {
-                value = map.get(e.raw, 0.0);
+                auto eraw = map[e.raw];
+                if (eraw.get_type() == Variant::Type::VECTOR3) {
+                    value = NAN;
+                    vector_map[tape_index] = (Vector3)eraw;
+                } else {
+                    value = (float)eraw;
+                    if (std::isnan(value)) {
+                        value = 0.0;
+                    }
+                }
             } else if (user_funcs.has(e.raw)) {
                 auto func = (Dictionary)user_funcs[e.raw];
                 auto args = (PackedStringArray)func[String("args")];
@@ -191,9 +223,15 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                     POP_VAR(x, e.raw + " requires " + UtilityFunctions::str(args.size()) + " parameters")
                     var_maps[v] = x;
                 }
-                value = expr->compute(var_maps, user_funcs);
-                if (std::isnan(value)) {
-                    value = 0.0;
+                auto eraw = expr->compute(var_maps, user_funcs);
+                if (eraw.get_type() == Variant::Type::VECTOR3) {
+                    value = NAN;
+                    vector_map[tape_index] = (Vector3)eraw;
+                } else {
+                    value = (float)eraw;
+                    if (std::isnan(value)) {
+                        value = 0.0;
+                    }
                 }
             }
             if (tape_index == tape.size()) {
@@ -216,23 +254,40 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
             }
             auto a = tape[tape_index];
             double value = 0.0;
+            auto vans = Vector3();
             if (e.raw == "+") {
-                value = a + b;
+                BINOP(+)
             } else if (e.raw == "-") {
-                value = a - b;
+                BINOP(-)
             } else if (e.raw == "*") {
-                value = a * b;
+                BINOP(*)
             } else if (e.raw == "/") {
                 if (b == 0.0) {
                     value = 0.0;
                 } else {
-                    value = a / b;
+                    BINOP(/)
                 }
             } else if (e.raw == "^") {
                 value = pow(a, b);
+            } else if (e.raw == ".") {
+                if (std::isnan(a)) {
+                    auto va = (Vector3)vector_map[tape_index];
+                    if (int(b) % 3 == 0) {
+                        value = va.x;
+                    } else if (int(b) % 3 == 1) {
+                        value = va.y;
+                    } else if (int(b) % 3 == 2) {
+                        value = va.z;
+                    }
+                } else {
+                    value = a;
+                }
             }
+            // if (std::isnan(value)) {
+            //     value = 0.0;
+            // }
             if (std::isnan(value)) {
-                value = 0.0;
+                vector_map[tape_index] = vans;
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
@@ -268,6 +323,7 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
             }
             auto a = tape[tape_index];
             double value = 0.0;
+            auto vans = Vector3();
             if (e.raw == "sin") {
                 value = sin(a);
             } else if (e.raw == "cos") {
@@ -452,6 +508,11 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(c, "dot2 requires 4 parameters")
                 POP_VAR(d, "dot2 requires 4 parameters")
                 value = Vector2(d, c).dot(Vector2(b, a));
+            } else if (e.raw == "dot") {
+                POP_VAR(b, "dot requires 2 parameters")
+                auto va = (Vector3)vector_map.get(tape_index + 1, Vector3());
+                auto vb = (Vector3)vector_map.get(tape_index + 0, Vector3());
+                value = vb.dot(va);
             } else if (e.raw == "dot3") {
                 POP_VAR(b, "dot3 requires 6 parameters")
                 POP_VAR(c, "dot3 requires 6 parameters")
@@ -459,6 +520,22 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(e, "dot3 requires 6 parameters")
                 POP_VAR(f, "dot3 requires 6 parameters")
                 value = Vector3(f, e, d).dot(Vector3(c, b, a));
+            } else if (e.raw == "len") {
+                auto va = (Vector3)vector_map.get(tape_index + 0, Vector3());
+                value = va.length();
+            } else if (e.raw == "len2") {
+                POP_VAR(b, "len2 requires 2 parameters")
+                value = sqrt(a * a + b * b);
+            } else if (e.raw == "len3") {
+                POP_VAR(b, "len3 requires 3 parameters")
+                POP_VAR(c, "len3 requires 3 parameters")
+                value = sqrt(a * a + b * b + c * c);
+            } else if (e.raw == "cross") {
+                POP_VAR(b, "cross requires 2 parameters")
+                auto va = (Vector3)vector_map.get(tape_index + 1, Vector3());
+                auto vb = (Vector3)vector_map.get(tape_index + 0, Vector3());
+                vans = vb.cross(va);
+                value = NAN;
             } else if (e.raw == "cross_x") {
                 POP_VAR(b, "cross_x requires 6 parameters")
                 POP_VAR(c, "cross_x requires 6 parameters")
@@ -480,6 +557,12 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(e, "cross_z requires 6 parameters")
                 POP_VAR(f, "cross_z requires 6 parameters")
                 value = Vector3(f, e, d).cross(Vector3(c, b, a)).z;
+            } else if (e.raw == "proj") {
+                POP_VAR(b, "proj requires 2 parameters")
+                auto va = (Vector3)vector_map.get(tape_index + 1, Vector3());
+                auto vb = (Vector3)vector_map.get(tape_index + 0, Vector3());
+                vans = va - va.dot(vb) * vb;
+                value = NAN;
             } else if (e.raw == "proj_x") {
                 POP_VAR(b, "proj_x requires 6 parameters")
                 POP_VAR(c, "proj_x requires 6 parameters")
@@ -507,6 +590,10 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 auto n = Vector3(f, e, d).normalized();
                 auto v = Vector3(c, b, a);
                 value = (v - v.dot(n) * n).z;
+            } else if (e.raw == "unit") {
+                auto va = (Vector3)vector_map.get(tape_index + 0, Vector3());
+                vans = va.normalized();
+                value = NAN;
             } else if (e.raw == "unit_x") {
                 POP_VAR(b, "unit_x requires 3 parameters")
                 POP_VAR(c, "unit_x requires 3 parameters")
@@ -519,6 +606,13 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(b, "unit_z requires 3 parameters")
                 POP_VAR(c, "unit_z requires 3 parameters")
                 value = Vector3(c, b, a).normalized().z;
+            } else if (e.raw == "rot") {
+                POP_VAR(b, "rot requires 3 parameters")
+                POP_VAR(c, "rot requires 3 parameters")
+                auto va = (Vector3)vector_map.get(tape_index + 2, Vector3());
+                auto vb = (Vector3)vector_map.get(tape_index + 1, Vector3());
+                vans = va.rotated(vb.normalized(), c);
+                value = NAN;
             } else if (e.raw == "rot_x") {
                 POP_VAR(b, "rot_x requires 7 parameters")
                 POP_VAR(c, "rot_x requires 7 parameters")
@@ -543,9 +637,15 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
                 POP_VAR(f, "rot_z requires 7 parameters")
                 POP_VAR(g, "rot_z requires 7 parameters")
                 value = Vector3(c, b, a).rotated(Vector3(f, e, d).normalized(), g).z;
+            } else if (e.raw == "vec") {
+                POP_VAR(b, "vec requires 3 parameters")
+                POP_VAR(c, "vec requires 3 parameters")
+                value = NAN;
+                vans = Vector3(c, b, a);
             }
             if (std::isnan(value)) {
-                value = 0.0;
+                // value = 0.0;
+                vector_map[tape_index] = vans;
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
@@ -565,7 +665,12 @@ double GDExpr::compute(Dictionary map, Dictionary user_funcs)
         error = "Incomplete Expression";
         return 0.0;
     }
-    return tape[tape_index];
+    auto result = tape[tape_index];
+    if (std::isnan(result)) {
+        return (Vector3)vector_map[tape_index];
+    } else {
+        return result;
+    }
 }
 
 bool GDExpr::contains_variable(godot::String var_name)
@@ -599,7 +704,7 @@ void bake_into_vector(const std::vector<GDToken>& tokens, std::vector<GDToken>* 
             if (sub_expr.length() > 0) {
                 auto sub_tokens = godot::tokenize("(" + sub_expr + ")");
                 if (vector_contains_string(chain, e.raw)) {
-                    result->emplace_back(tkNUMBER, "0"); // FIXME: use emplace_back to avoid copy
+                    result->emplace_back(tkNUMBER, "0");
                 } else {
                     chain->emplace_back(e.raw);
                     bake_into_vector(sub_tokens, &buffer, map, chain);
@@ -613,7 +718,7 @@ void bake_into_vector(const std::vector<GDToken>& tokens, std::vector<GDToken>* 
         }
     }
     for (auto& e : buffer) {
-        result->push_back(std::move(e)); // FIXME: use std::move
+        result->push_back(std::move(e));
     }
 }
 

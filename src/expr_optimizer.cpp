@@ -585,6 +585,27 @@ String godot::constant_folding(const std::vector<GDToken>& expression, Dictionar
                         temp = Vector3(c, b, a).normalized().y;
                     } else if (e.raw == "unit_z") {
                         temp = Vector3(c, b, a).normalized().z;
+                    } else if (e.raw == "perp_x") {
+                        auto v = Vector3(a, b, c);
+                        if (Vector3(0, 1, 0).cross(v.normalized()).is_zero_approx()) {
+                            temp = Vector3(1, 0, 0).slide(v.normalized()).x;
+                        } else {
+                            temp = Vector3(0, 1, 0).slide(v.normalized()).x;
+                        }
+                    } else if (e.raw == "perp_y") {
+                        auto v = Vector3(a, b, c);
+                        if (Vector3(0, 1, 0).cross(v.normalized()).is_zero_approx()) {
+                            temp = Vector3(1, 0, 0).slide(v.normalized()).y;
+                        } else {
+                            temp = Vector3(0, 1, 0).slide(v.normalized()).y;
+                        }
+                    } else if (e.raw == "perp_z") {
+                        auto v = Vector3(a, b, c);
+                        if (Vector3(0, 1, 0).cross(v.normalized()).is_zero_approx()) {
+                            temp = Vector3(1, 0, 0).slide(v.normalized()).z;
+                        } else {
+                            temp = Vector3(0, 1, 0).slide(v.normalized()).z;
+                        }
                     } else if (e.raw == "vec") {
                         PUSH_VAR(tok_c)
                         PUSH_VAR(tok_b)

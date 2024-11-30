@@ -8,6 +8,7 @@
 #include "noise_blender.h"
 #include "stylemat.h"
 #include "terrain.h"
+#include "variable_stash.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/class_db.hpp>
@@ -29,6 +30,7 @@ void initialize_example_module(ModuleInitializationLevel p_level)
     ClassDB::register_class<GDTerrain>();
     ClassDB::register_class<GDStyleMat>();
     ClassDB::register_class<GDChunker>();
+    ClassDB::register_class<Vars>();
     // ClassDB::register_class<FN>();
 }
 

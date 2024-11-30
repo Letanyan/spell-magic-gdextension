@@ -21,7 +21,34 @@ enum GDTokenKind {
     tkERROR
 };
 
+enum GDTokenOpKind;
+enum GDTokenFuncKind;
+enum GDTokenScalarVarKind;
+enum GDTokenVecVarKind;
+
+struct GDToken {
+public:
+    GDToken();
+    GDToken(GDTokenKind _kind, godot::String _raw);
+    GDToken(GDTokenKind _kind, char32_t _raw);
+    GDToken(godot::String _raw);
+
+    godot::String raw;
+    GDTokenKind kind;
+    int16_t sub_kind;
+    bool is_var_vec;
+};
+
+std::vector<GDToken> tokenize(godot::String expr);
+godot::String build_string_from_tokens(const std::vector<GDToken>& tokens);
+bool gd_operator_precedes(GDToken op1, GDToken op2);
+int gd_operator_precedence(GDToken op);
+bool gd_operator_is_right_associative(GDToken op);
+int number_of_func_arguments(godot::String name);
+bool siseq(String a, const char* other);
+
 enum GDTokenOpKind : int16_t {
+    tkopNONE = -1,
     tkopPLUS,
     tkopMINUS,
     tkopMULT,
@@ -29,10 +56,11 @@ enum GDTokenOpKind : int16_t {
     tkopEXP,
     tkopDOT,
 
-    tkopNONE = -1
+    tkopSIZE
 };
 
 enum GDTokenFuncKind : int16_t {
+    tkfnNONE = -1,
     tkfn_segment5,
     tkfn_segment4,
     tkfn_rot_x,
@@ -106,27 +134,190 @@ enum GDTokenFuncKind : int16_t {
     tkfn_acos,
     tkfn_atan,
 
-    tkfn_NONE = -1
+    tkfnSIZE
 };
 
-struct GDToken {
-public:
-    GDToken();
-    GDToken(GDTokenKind _kind, godot::String _raw);
-    GDToken(GDTokenKind _kind, GDTokenFuncKind _sub_kind, godot::String _raw);
-    GDToken(GDTokenKind _kind, char32_t _raw);
+enum GDTokenScalarVarKind : int16_t {
+    tkvNONE = -1,
+    tkv_r0,
+    tkv_r1,
+    tkv_r2,
+    tkv_r3,
+    tkv_r4,
+    tkv_r5,
+    tkv_r6,
+    tkv_r7,
+    tkv_r8,
+    tkv_r9,
+    tkv_pi,
+    tkv_N,
+    tkv_M,
+    tkv_C,
+    tkv_L,
+    tkv_T,
+    tkv_P,
+    tkv_CR,
+    tkv_CD,
+    tkv_x,
+    tkv_y,
+    tkv_z,
+    tkv_r,
+    tkv_rn0,
+    tkv_rn1,
+    tkv_rn2,
+    tkv_rn3,
+    tkv_rn4,
+    tkv_rn5,
+    tkv_rn6,
+    tkv_rn7,
+    tkv_rn8,
+    tkv_rn9,
+    tkv_n,
+    tkv_D,
+    tkv_spinrate,
+    tkv_t,
 
-    godot::String raw;
-    GDTokenKind kind;
-    int16_t sub_kind;
+    tkv_l,
+    tkv_fl,
+    tkv_Bx,
+    tkv_By,
+    tkv_Bz,
+    tkv_Br,
+    tkv_tC,
+    tkv_TC,
+
+    tkv_u,
+    tkv_v,
+    tkv_w,
+    tkv_tu,
+    tkv_tv,
+    tkv_tw,
+    tkv_Tu,
+    tkv_Tv,
+    tkv_Tw,
+
+    tkv_ru,
+    tkv_rv,
+    tkv_rw,
+    tkv_tru,
+    tkv_trv,
+    tkv_trw,
+    tkv_Tru,
+    tkv_Trv,
+    tkv_Trw,
+
+    tkv_U,
+    tkv_V,
+    tkv_W,
+    tkv_tU,
+    tkv_tV,
+    tkv_tW,
+    tkv_TU,
+    tkv_TV,
+    tkv_TW,
+
+    tkv_rU,
+    tkv_rV,
+    tkv_rW,
+    tkv_trU,
+    tkv_trV,
+    tkv_trW,
+    tkv_TrU,
+    tkv_TrV,
+    tkv_TrW,
+
+    tkv_i,
+    tkv_j,
+    tkv_k,
+    tkv_ti,
+    tkv_tj,
+    tkv_tk,
+    tkv_Ti,
+    tkv_Tj,
+    tkv_Tk,
+
+    tkv_ri,
+    tkv_rj,
+    tkv_rk,
+    tkv_tri,
+    tkv_trj,
+    tkv_trk,
+    tkv_Tri,
+    tkv_Trj,
+    tkv_Trk,
+
+    tkv_I,
+    tkv_J,
+    tkv_K,
+    tkv_tI,
+    tkv_tJ,
+    tkv_tK,
+    tkv_TI,
+    tkv_TJ,
+    tkv_TK,
+
+    tkv_rI,
+    tkv_rJ,
+    tkv_rK,
+    tkv_trI,
+    tkv_trJ,
+    tkv_trK,
+    tkv_TrI,
+    tkv_TrJ,
+    tkv_TrK,
+
+    tkv_frame_time,
+
+    tkvSIZE
 };
 
-std::vector<GDToken> tokenize(godot::String expr);
-godot::String build_string_from_tokens(const std::vector<GDToken>& tokens);
-bool gd_operator_precedes(GDToken op1, GDToken op2);
-int gd_operator_precedence(GDToken op);
-bool gd_operator_is_right_associative(GDToken op);
-int number_of_func_arguments(godot::String name);
+enum GDTokenVecVarKind : int64_t {
+    tkvvNONE = -1,
+    tkvv_Bxyz,
+
+    tkvv_uvw,
+    tkvv_tuvw,
+    tkvv_Tuvw,
+
+    tkvv_ruvw,
+    tkvv_truvw,
+    tkvv_Truvw,
+
+    tkvv_UVW,
+    tkvv_tUVW,
+    tkvv_TUVW,
+
+    tkvv_rUVW,
+    tkvv_trUVW,
+    tkvv_TrUVW,
+
+    tkvv_ijk,
+    tkvv_tijk,
+    tkvv_Tijk,
+
+    tkvv_rijk,
+    tkvv_trijk,
+    tkvv_Trijk,
+
+    tkvv_IJK,
+    tkvv_tIJK,
+    tkvv_TIJK,
+
+    tkvv_rIJK,
+    tkvv_trIJK,
+    tkvv_TrIJK,
+
+    tkvv_old_pos,
+    tkvv_rel_pos,
+    tkvv_abs_pos,
+
+    tkvvSIZE
+};
+
+GDTokenFuncKind __func_kind_from_string___(String str);
+GDTokenOpKind __op_kind_from_char___(char32_t c);
+GDTokenScalarVarKind __var_scalar_kind_from_string___(String str);
+GDTokenVecVarKind __var_vec_kind_from_string___(String str);
 
 }
 

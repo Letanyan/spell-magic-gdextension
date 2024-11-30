@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/ref_counted.hpp>
 
 #include "token.h"
+#include "variable_stash.h"
 #include <vector>
 
 #include "my_profiler.h"
@@ -37,8 +38,8 @@ public:
     void build_from_tokens(const std::vector<GDToken>& tokens);
     void build(const String& expr);
 
-    Variant compute(const Dictionary& map, const Dictionary& user_funcs, bool debug);
-    float compute_value(const Dictionary& map, const Dictionary& user_funcs, bool debug);
+    Variant compute(const Vars* map, const Dictionary& user_funcs, bool debug);
+    float compute_value(const Vars* map, const Dictionary& user_funcs, bool debug);
 
     bool contains_variable(const String& var_name);
     static String bake(const String& expr, const Dictionary& map);

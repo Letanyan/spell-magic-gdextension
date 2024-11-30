@@ -7,27 +7,6 @@
 
 using namespace godot;
 
-void GDExpr::_bind_methods()
-{
-    ClassDB::bind_static_method("GDExpr", D_METHOD("bake", "expr", "map"), &GDExpr::bake);
-
-    ClassDB::bind_method(D_METHOD("build_in", "expr"), &GDExpr::build_in);
-    ClassDB::bind_method(D_METHOD("copy_from", "expr"), &GDExpr::copy_from);
-
-    ClassDB::bind_method(D_METHOD("build", "expression"), &GDExpr::build);
-    ClassDB::bind_method(D_METHOD("compute", "variables", "user_funcs", "debug"), &GDExpr::compute);
-    ClassDB::bind_method(D_METHOD("compute_value", "variables", "user_funcs", "debug"), &GDExpr::compute_value);
-    ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
-
-    ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
-    ClassDB::bind_method(D_METHOD("set_error", "error_message"), &GDExpr::set_error);
-    ClassDB::add_property("GDExpr", PropertyInfo(Variant::STRING, "error"), "set_error", "get_error");
-
-    ClassDB::bind_method(D_METHOD("token_description"), &GDExpr::token_description);
-
-    ClassDB::bind_method(D_METHOD("print_profiling"), &GDExpr::print_profiling);
-}
-
 String GDExpr::get_error()
 {
     return error;
@@ -166,7 +145,7 @@ double godot::clerpf(double a, double b, double t)
     return UtilityFunctions::lerpf(a, b, UtilityFunctions::clampf(t, 0.0, 1.0));
 }
 
-Variant GDExpr::compute(const Dictionary& map, const Dictionary& user_funcs, bool debug)
+Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debug)
 {
     // parameters are in reverse order. For example the first popped var is the last parameter:
     // f(..., z, ..., c, b, a)
@@ -229,8 +208,8 @@ Variant GDExpr::compute(const Dictionary& map, const Dictionary& user_funcs, boo
             prof_var.start();
             float value = 0.0;
             auto vans = Vector3();
-            if (map.has(e.raw)) {
-                auto eraw = map[e.raw];
+            if (map->has(e)) {
+                auto eraw = map->get(e);
                 if (eraw.get_type() == Variant::Type::VECTOR3) {
                     value = NAN;
                     vans = (Vector3)eraw;
@@ -246,12 +225,13 @@ Variant GDExpr::compute(const Dictionary& map, const Dictionary& user_funcs, boo
                 auto func = (Dictionary)user_funcs[e.raw];
                 auto args = (PackedStringArray)func[String("args")];
                 auto expr = (GDExpr*)(Object*)func[String("expr")];
-                auto var_maps = Dictionary();
+                auto var_maps = new Vars();
                 for (auto v : args) {
                     POP_VAR(x, e.raw + " requires " + UtilityFunctions::str(args.size()) + " parameters")
-                    var_maps[v] = x;
+                    var_maps->set_nok(v, x);
                 }
                 auto eraw = expr->compute(var_maps, user_funcs, debug);
+                delete var_maps;
                 if (eraw.get_type() == Variant::Type::VECTOR3) {
                     value = NAN;
                     vans = (Vector3)eraw;
@@ -263,6 +243,9 @@ Variant GDExpr::compute(const Dictionary& map, const Dictionary& user_funcs, boo
                 }
                 if (debug)
                     UtilityFunctions::print("USER_FUNCS: ", value);
+            } else {
+                if (debug)
+                    UtilityFunctions::print("err VAR: ", e.raw, " ", e.sub_kind, " ", e.is_var_vec);
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
@@ -749,7 +732,7 @@ Variant GDExpr::compute(const Dictionary& map, const Dictionary& user_funcs, boo
     }
 }
 
-float GDExpr::compute_value(const Dictionary& map, const Dictionary& user_funcs, bool debug)
+float GDExpr::compute_value(const Vars* map, const Dictionary& user_funcs, bool debug)
 {
     Variant value = compute(map, user_funcs, debug);
     if (value.get_type() == Variant::VECTOR3) {
@@ -830,4 +813,25 @@ void GDExpr::copy_from(GDExpr* expr)
 void GDExpr::print_profiling()
 {
     UtilityFunctions::print("number: ", prof_number.elapsed, ", var: ", prof_var.elapsed, ", binop: ", prof_binop.elapsed, ", func: ", prof_func.elapsed);
+}
+
+void GDExpr::_bind_methods()
+{
+    ClassDB::bind_static_method("GDExpr", D_METHOD("bake", "expr", "map"), &GDExpr::bake);
+
+    ClassDB::bind_method(D_METHOD("build_in", "expr"), &GDExpr::build_in);
+    ClassDB::bind_method(D_METHOD("copy_from", "expr"), &GDExpr::copy_from);
+
+    ClassDB::bind_method(D_METHOD("build", "expression"), &GDExpr::build);
+    ClassDB::bind_method(D_METHOD("compute", "variables", "user_funcs", "debug"), &GDExpr::compute);
+    ClassDB::bind_method(D_METHOD("compute_value", "variables", "user_funcs", "debug"), &GDExpr::compute_value);
+    ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
+
+    ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
+    ClassDB::bind_method(D_METHOD("set_error", "error_message"), &GDExpr::set_error);
+    ClassDB::add_property("GDExpr", PropertyInfo(Variant::STRING, "error"), "set_error", "get_error");
+
+    ClassDB::bind_method(D_METHOD("token_description"), &GDExpr::token_description);
+
+    ClassDB::bind_method(D_METHOD("print_profiling"), &GDExpr::print_profiling);
 }

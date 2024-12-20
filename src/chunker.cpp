@@ -388,6 +388,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     array.resize(hmap->get_map_data().size());
     auto manhattan = UtilityFunctions::maxf(UtilityFunctions::absf(coord.x - saved_player_coord.x), UtilityFunctions::absf(coord.y - saved_player_coord.y));
     auto is_central = manhattan < 1;
+    auto is_central_layer2 = manhattan < 2;
     auto edges = edges_part_of_transition(coord, new_coord, saved_player_coord);
     auto is_internal_chunk = lod < lod_levels.size() - 1;
 
@@ -456,10 +457,10 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
             array.set(i, A.y / hmap_scale);
         }
         if (find_bound_coords) {
-            if (A.y > max_height_position.y && is_central && UtilityFunctions::absf(A.x) < chunk_width * 0.9 && UtilityFunctions::absf(A.z) < chunk_width * 0.9) {
+            if (std::isnan(max_height_position.y) || (A.y > max_height_position.y && is_central)) {
                 max_height_position = Vector3(A.x + x, A.y, A.z + z);
             }
-            if (A.y < min_height_position.y) {
+            if (std::isnan(min_height_position.y) || (A.y < min_height_position.y && is_central_layer2)) {
                 min_height_position = Vector3(A.x + x, A.y, A.z + z);
             }
         }
@@ -505,8 +506,6 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     // mat.set_shader_parameter("locations", blender.back.get_locations())
     // RenderingServer.mesh_surface_set_material(mesh, 0, mat)
     auto mat = (ShaderMaterial*)(Object*)mats[coord];
-    mat->set_shader_parameter("texture_width", W);
-    mat->set_shader_parameter("texture_depth", W);
     mat->set_shader_parameter("biome_x", biome_x_texture);
     mat->set_shader_parameter("biome_y", biome_z_texture);
     mat->set_shader_parameter("noise", noise_texture);

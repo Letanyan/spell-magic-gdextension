@@ -61,6 +61,7 @@ void GDNoiseBlender::_bind_methods()
 
     ClassDB::bind_method(D_METHOD("texture", "noise", "x", "y", "w", "h"), &GDNoiseBlender::texture);
     ClassDB::bind_method(D_METHOD("biome_texture", "x", "y", "w", "h", "scale", "axis"), &GDNoiseBlender::biome_texture);
+    ClassDB::bind_method(D_METHOD("height_texture", "data", "w", "h"), &GDNoiseBlender::height_texture);
     ClassDB::bind_method(D_METHOD("grass_height", "biome", "x", "y"), &GDNoiseBlender::grass_height);
     ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale"), &GDNoiseBlender::height_map);
     ClassDB::bind_method(D_METHOD("get_locations"), &GDNoiseBlender::get_locations);
@@ -414,11 +415,25 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
     for (int i = 0; i < locations.size(); i++) {
         terrains[i].noise2d(terrain_noise.data(), x, y, w, h, scale);
         auto curve = curves[i];
-        for (int j = 0; j < terrain_noise.size(); j++) {
-            double e = terrain_noise[j] * 0.5 + 0.5;
-            e = curve->sample_baked(e);
-            double m = powf(1.0 - distances_map[j * locations.size() + i] / total_distances_map[j], elevation_mix_exp);
-            height_map_store[j] += e * m;
+        // if center chunk smooth center to make it easier for player to move
+        if (w - 1 == scale && x == -scale * 0.5 && y == -scale * 0.5) {
+            auto center_j = w * (w - w / 2 - 1) + (w - w / 2 - 1);
+            auto center_e = terrain_noise[center_j] * 0.5 + 0.5;
+            for (int j = 0; j < terrain_noise.size(); j++) {
+                auto row = y + j / (int)w;
+                auto col = x + j - w * (int)(j / w);
+                double e = sqrtf(row * row + col * col) < (w * 0.4) ? center_e : (terrain_noise[j] * 0.5 + 0.5);
+                e = curve->sample_baked(e);
+                double m = powf(1.0 - distances_map[j * locations.size() + i] / total_distances_map[j], elevation_mix_exp);
+                height_map_store[j] += e * m;
+            }
+        } else {
+            for (int j = 0; j < terrain_noise.size(); j++) {
+                double e = terrain_noise[j] * 0.5 + 0.5;
+                e = curve->sample_baked(e);
+                double m = powf(1.0 - distances_map[j * locations.size() + i] / total_distances_map[j], elevation_mix_exp);
+                height_map_store[j] += e * m;
+            }
         }
     }
     // prof.stop();

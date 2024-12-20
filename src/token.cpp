@@ -788,7 +788,7 @@ GDTokenVecVarKind godot::__var_vec_kind_from_string___(String str)
         return tkvv_old_pos;
     if (siseq(str, "~~rel_pos"))
         return tkvv_rel_pos;
-    if (siseq(str, "~~abs_pos"))
+    if (siseq(str, "abs_pos"))
         return tkvv_abs_pos;
 
     return tkvvNONE;

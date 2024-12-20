@@ -38,22 +38,19 @@ Variant Vars::get(GDToken token) const
     }
 
     Variant result = 0.0;
-    bool found = false;
     if (!token.is_var_vec && token.sub_kind != -1) {
-        result = scalars[token.sub_kind];
-        found = true;
+        return scalars[token.sub_kind];
     }
 
     if (token.is_var_vec && token.sub_kind != -1) {
-        result = vectors[token.sub_kind];
-        found = true;
+        return vectors[token.sub_kind];
     }
 
-    if (!found && other.has(token.raw)) {
-        result = other[token.raw];
+    if (other.has(token.raw)) {
+        return other[token.raw];
     }
 
-    return result;
+    return nullptr;
     // if (result.get_type() == Variant::Type::FLOAT || result.get_type() == Variant::Type::INT) {
     //     if (std::isnan((float)result)) {
     //         return 0.0;

@@ -208,13 +208,13 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
             prof_var.start();
             float value = 0.0;
             auto vans = Vector3();
-            if (map->has(e)) {
-                auto eraw = map->get(e);
-                if (eraw.get_type() == Variant::Type::VECTOR3) {
+            auto map_get = map->get(e);
+            if (map_get.get_type() != Variant::NIL) {
+                if (map_get.get_type() == Variant::Type::VECTOR3) {
                     value = NAN;
-                    vans = (Vector3)eraw;
+                    vans = (Vector3)map_get;
                 } else {
-                    value = (float)eraw;
+                    value = (float)map_get;
                     if (std::isnan(value)) {
                         value = 0.0;
                     }

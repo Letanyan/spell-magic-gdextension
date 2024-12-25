@@ -11,6 +11,17 @@
 
 using namespace godot;
 
+ChunkUpdateParameters::ChunkUpdateParameters()
+{
+    coord0 = Vector2i();
+    coord1 = Vector2i();
+    res0 = 0.0;
+    res1 = 0.0;
+    delta = Vector2i();
+    saved_player_coord = Vector2i();
+    is_swap = false;
+}
+
 GDChunker::GDChunker()
 {
 }
@@ -21,6 +32,8 @@ GDChunker::~GDChunker()
 
 void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level, float grass_size, GDNoiseBlender* blender, TypedArray<int> lods, bool find_bound_coords)
 {
+    this->update_chunk_array = PackedFloat32Array();
+
     this->chunk_width = chunk_width;
     this->chunk_resolution = chunk_resolution;
     this->sea_level = sea_level;
@@ -34,7 +47,7 @@ void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level,
     max_height_position = Vector3(NAN, NAN, NAN);
     chunk_vertices = PackedVector3Array();
     player_coord = Vector2i();
-    chunk_update_queue = new GDRingBuffer();
+    chunk_update_queue = std::queue<ChunkUpdateParameters>();
 
     this->chunk_lods = Dictionary();
     this->chunk_rids = Dictionary();
@@ -292,6 +305,8 @@ StaticBody3D* GDChunker::create_static_body(float size, float res, HeightMapShap
 
 void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vector2i saved_player_coord)
 {
+    // FIXME: make faster
+
     // var mesh := mesh_rids[coord] as RID
     // var mesh_data := RenderingServer.mesh_surface_get_arrays(mesh, 0)
     // var vertices := mesh_data[Mesh.ArrayType.ARRAY_VERTEX] as PackedVector3Array
@@ -384,8 +399,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     auto pos = convert_coord_to_position(new_coord.x, new_coord.y);
     auto hmap = (HeightMapShape3D*)(Object*)height_maps[coord];
     auto hmap_scale = height_map_scale(lod);
-    auto array = PackedFloat32Array();
-    array.resize(hmap->get_map_data().size());
+    update_chunk_array.resize(hmap->get_map_data().size());
     auto manhattan = UtilityFunctions::maxf(UtilityFunctions::absf(coord.x - saved_player_coord.x), UtilityFunctions::absf(coord.y - saved_player_coord.y));
     auto is_central = manhattan < 1;
     auto is_central_layer2 = manhattan < 2;
@@ -454,7 +468,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         // 			min_height_position = Vector3(A.x + x, A.y, A.z + z)
         vertices[i].y = A.y;
         if (lod == 0 || !(lod < track_biomes_upto_lod)) {
-            array.set(i, A.y / hmap_scale);
+            update_chunk_array.set(i, A.y / hmap_scale);
         }
         if (find_bound_coords) {
             if (std::isnan(max_height_position.y) || (A.y > max_height_position.y && is_central)) {
@@ -481,14 +495,14 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         hmap_scale = height_map_scale(0);
         auto newS = subdivisions(resolution(0));
         w = newS + 2;
-        for (size_t i = 0; i < array.size(); i++) {
+        for (size_t i = 0; i < update_chunk_array.size(); i++) {
             auto row = i / w;
             auto col = i % w;
             auto j = w * (w - row - 1) + (w - col - 1);
-            array.set(i, UtilityFunctions::snappedf(yss[j], S) / hmap_scale);
+            update_chunk_array.set(i, UtilityFunctions::snappedf(yss[j], S) / hmap_scale);
         }
     }
-    hmap->set_map_data(array);
+    hmap->set_map_data(update_chunk_array);
 
     // RenderingServer.mesh_clear(mesh)
     // mesh_data[Mesh.ArrayType.ARRAY_VERTEX] = vertices
@@ -543,7 +557,7 @@ void GDChunker::update_water_chunk(Vector2i coord, Vector2i new_coord)
 bool GDChunker::has_chunks_to_update()
 {
     // return not chunk_update_queue.is_empty()
-    return !(chunk_update_queue->is_empty());
+    return !(chunk_update_queue.empty());
 }
 
 Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
@@ -555,10 +569,9 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
     auto updated = TypedArray<Vector4i>();
     auto removed = TypedArray<Vector4i>();
     auto duration = Time::get_singleton()->get_ticks_msec() - start;
-    size_t index = 0;
 
     // while duration < limit and index < chunk_update_queue.size():
-    while (duration < limit && index < chunk_update_queue->size()) {
+    while (duration < limit && !chunk_update_queue.empty()) {
         // 	var params := chunk_update_queue.pop_front() as Dictionary
         // 	index += 1
         // 	var coord0 := params["coord0"] as Vector2i
@@ -567,17 +580,17 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
         // 	var saved_player_coord := params["saved_player_coord"] as Vector2i
         // 	update_chunk(coord0, coord1, res0, saved_player_coord)
         // 	update_water_chunk(coord0, coord1)
-        auto params = (Dictionary)chunk_update_queue->pop_front();
-        index += 1;
-        auto coord0 = (Vector2i)params["coord0"];
-        auto coord1 = (Vector2i)params["coord1"];
-        auto res0 = (float)params["res0"];
-        auto saved_player_coord = (Vector2i)params["saved_player_coord"];
+        auto params = chunk_update_queue.front();
+        chunk_update_queue.pop();
+        auto coord0 = params.coord0;
+        auto coord1 = params.coord1;
+        auto res0 = params.res0;
+        auto saved_player_coord = params.saved_player_coord;
         update_chunk(coord0, coord1, res0, saved_player_coord);
         update_water_chunk(coord0, coord1);
 
         // 	if params.has("res1"):
-        if (params.has("res1")) {
+        if (params.is_swap) {
             // var res1 := params["res1"] as float
             // update_chunk(coord1, coord0, res1, saved_player_coord)
             // update_water_chunk(coord1, coord0)
@@ -601,14 +614,14 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
             //      move_key(bodies, coord1, coord0)
             // swap_keys(height_maps, coord0, coord1)
             // swap_keys(biome_maps, coord0, coord1)
-            auto res1 = (float)params["res1"];
+            auto res1 = params.res1;
             update_chunk(coord1, coord0, res1, saved_player_coord);
             update_water_chunk(coord1, coord0);
             updated.append(Vector4i(coord1.x, coord1.y, UtilityFunctions::roundi(chunk_resolution / res0 - 1), UtilityFunctions::roundi(chunk_resolution / res1 - 1)));
             removed.append(Vector4i(coord0.x, coord0.y, UtilityFunctions::roundi(chunk_resolution / res0 - 1), UtilityFunctions::roundi(chunk_resolution / res1 - 1)));
             updated.append(Vector4i(coord0.x, coord0.y, UtilityFunctions::roundi(chunk_resolution / res1 - 1), UtilityFunctions::roundi(chunk_resolution / res0 - 1)));
             removed.append(Vector4i(coord1.x, coord1.y, UtilityFunctions::roundi(chunk_resolution / res1 - 1), UtilityFunctions::roundi(chunk_resolution / res0 - 1)));
-            auto delta = (Vector2i)params["delta"];
+            auto delta = params.delta;
             update_chunk(coord0 + delta, coord0 + delta, resolution(chunk_lods[coord0 + delta]), saved_player_coord);
             update_chunk(coord1 - delta, coord1 - delta, resolution(chunk_lods[coord0 + delta]), saved_player_coord);
             swap_keys(chunk_lods, coord0, coord1);
@@ -747,24 +760,26 @@ TypedArray<Vector2i> GDChunker::update_chunks_impl(Vector2i delta)
                 result.append(to_flip[i]);
             }
             if (lod + 1 < lod_levels.size()) {
-                auto dict = Dictionary();
-                dict["coord0"] = to_flip[i];
-                dict["coord1"] = (Vector2i)into[i] + delta;
-                dict["res0"] = resolution(lod);
-                dict["res1"] = resolution(lod + 1);
-                dict["delta"] = delta;
-                dict["saved_player_coord"] = player_coord + delta;
+                auto params = ChunkUpdateParameters();
+                params.coord0 = to_flip[i];
+                params.coord1 = (Vector2i)into[i] + delta;
+                params.res0 = resolution(lod);
+                params.res1 = resolution(lod + 1);
+                params.delta = delta;
+                params.saved_player_coord = player_coord + delta;
+                params.is_swap = true;
                 if (lod + 1 < track_biomes_upto_lod) {
                     result.append((Vector2i)into[i] + delta);
                 }
-                chunk_update_queue->append(dict);
+                chunk_update_queue.push(params);
             } else {
-                auto dict = Dictionary();
-                dict["coord0"] = to_flip[i];
-                dict["coord1"] = (Vector2i)into[i] + delta;
-                dict["res0"] = resolution(lod);
-                dict["saved_player_coord"] = player_coord + delta;
-                chunk_update_queue->append(dict);
+                auto params = ChunkUpdateParameters();
+                params.coord0 = to_flip[i];
+                params.coord1 = (Vector2i)into[i] + delta;
+                params.res0 = resolution(lod);
+                params.saved_player_coord = player_coord + delta;
+                params.is_swap = false;
+                chunk_update_queue.push(params);
             }
         }
     }
@@ -1085,40 +1100,42 @@ Dictionary GDChunker::group_spawn_points(Vector2i coord, float spacing)
     auto offsetv = coord * chunk_width;
     auto biome_map = (PackedInt32Array)biome_maps[coord];
     auto height_map_scale_ = height_map_scale((int64_t)chunk_lods[coord]);
-    auto point_offset = Vector2(height_map_scale_ * 0.5, height_map_scale_ * 0.5);
+    auto point_offset = Vector2(height_map_scale_, height_map_scale_);
     bool const DEBUG = false;
     auto found_subsets = std::vector<int>();
     found_subsets.reserve(2);
     for (size_t vidx = 0; vidx < chunk_vertices.size(); vidx++) {
-        auto vp = chunk_vertices[vidx];
-        auto p = -Vector2(vp.x, vp.z) + point_offset + offsetv;
-        points.append(p);
-        auto biome = (int)biome_map[b];
-        found_subsets.clear();
-        auto areas_size = areas.size();
-        for (size_t i = 0; i < areas_size; i++) {
-            if ((int)biomes[i] == biome && GDChunker::contains_neighbour_point(areas[i], p, spacing)) {
-                found_subsets.push_back(i);
+        for (float scale_offset = 1.0; scale_offset <= 1.0; scale_offset += 0.25) {
+            auto vp = chunk_vertices[vidx];
+            auto p = -Vector2(vp.x, vp.z) + point_offset * scale_offset + offsetv;
+            points.append(p);
+            auto biome = (int)biome_map[b];
+            found_subsets.clear();
+            auto areas_size = areas.size();
+            for (size_t i = 0; i < areas_size; i++) {
+                if ((int)biomes[i] == biome && GDChunker::contains_neighbour_point(areas[i], p, spacing)) {
+                    found_subsets.push_back(i);
+                }
             }
-        }
-        if (found_subsets.empty()) {
-            auto n = PackedVector2Array();
-            n.append(p);
-            areas.append(n);
-            biomes.append(biome);
-        } else if (found_subsets.size() == 1) {
-            ((PackedVector2Array)areas[found_subsets[0]]).append(p);
-        } else {
-            std::sort(found_subsets.begin(), found_subsets.end(), std::greater<int>());
-            auto new_pack = PackedVector2Array();
-            for (size_t sidx = 0; sidx < found_subsets.size(); sidx++) {
-                auto subset = found_subsets[sidx];
-                new_pack.append_array(areas[subset]);
-                areas.remove_at(subset);
-                biomes.remove_at(subset);
+            if (found_subsets.empty()) {
+                auto n = PackedVector2Array();
+                n.append(p);
+                areas.append(n);
+                biomes.append(biome);
+            } else if (found_subsets.size() == 1) {
+                ((PackedVector2Array)areas[found_subsets[0]]).append(p);
+            } else {
+                std::sort(found_subsets.begin(), found_subsets.end(), std::greater<int>());
+                auto new_pack = PackedVector2Array();
+                for (size_t sidx = 0; sidx < found_subsets.size(); sidx++) {
+                    auto subset = found_subsets[sidx];
+                    new_pack.append_array(areas[subset]);
+                    areas.remove_at(subset);
+                    biomes.remove_at(subset);
+                }
+                areas.append(new_pack);
+                biomes.append(biome);
             }
-            areas.append(new_pack);
-            biomes.append(biome);
         }
         b++;
     }

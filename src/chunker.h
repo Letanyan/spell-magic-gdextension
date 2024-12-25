@@ -21,6 +21,7 @@
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <queue>
 
 #ifndef HAS_MEDIUM
 #define HAS_MEDIUM 1
@@ -40,18 +41,24 @@ namespace godot {
 
 MAKE_TYPED_ARRAY(Vector4i, Variant::VECTOR4I)
 
+struct ChunkUpdateParameters {
+public:
+    ChunkUpdateParameters();
+
+    Vector2i coord0;
+    Vector2i coord1;
+    Vector2i delta;
+    Vector2i saved_player_coord;
+    float res0;
+    float res1;
+    bool is_swap;
+};
+
 class GDChunker : public RefCounted {
     GDCLASS(GDChunker, RefCounted)
 
 private:
-    struct ChunkUpdateParameters {
-        Vector2i coord0;
-        Vector2i coord1;
-        Vector2i delta;
-        Vector2i saved_player_coord;
-        float res0;
-        float res1;
-    };
+    PackedFloat32Array update_chunk_array;
 
 protected:
     static void _bind_methods();
@@ -91,7 +98,7 @@ protected:
 
     Vector2i player_coord;
     Vector2 player_position;
-    GDRingBuffer* chunk_update_queue;
+    std::queue<ChunkUpdateParameters> chunk_update_queue;
 
     float chunk_width;
     float chunk_resolution;

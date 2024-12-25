@@ -3,41 +3,53 @@
 
 using namespace godot;
 
-GDRingBuffer::GDRingBuffer()
+template <typename T>
+RingBuffer<T>::RingBuffer()
 {
-    buffer = Array();
+    buffer = std::vector<T>();
     front = 0;
 }
 
-GDRingBuffer::~GDRingBuffer()
+template <typename T>
+RingBuffer<T>::~RingBuffer()
 {
 }
 
-void GDRingBuffer::init(String k)
+template <typename T>
+void RingBuffer<T>::init(String k)
 {
     buffer = Array();
     front = 0;
     tag = k;
 }
 
-void GDRingBuffer::append(Variant item)
+template <typename T>
+void RingBuffer<T>::push_back(T item)
 {
-    buffer.append(item);
+    buffer.push_back(item);
 }
 
-Variant GDRingBuffer::pop_back()
+template <typename T>
+void RingBuffer<T>::emplace(T&& item)
 {
-    auto item = (Variant)buffer.pop_back();
+    buffer.emplace(item);
+}
+
+template <typename T>
+T RingBuffer<T>::pop_back()
+{
+    auto item = buffer.pop_back();
     if (is_empty()) {
         reset();
     }
     return item;
 }
 
-Variant GDRingBuffer::pop_front()
+template <typename T>
+T RingBuffer<T>::pop_front()
 {
     if (is_empty()) {
-        return (Variant) nullptr;
+        return nullptr;
     }
     auto item = buffer[front];
     front += 1;
@@ -47,17 +59,20 @@ Variant GDRingBuffer::pop_front()
     return item;
 }
 
-bool GDRingBuffer::is_empty()
+template <typename T>
+bool RingBuffer<T>::is_empty()
 {
     return front == buffer.size();
 }
 
-size_t GDRingBuffer::size()
+template <typename T>
+size_t RingBuffer<T>::size()
 {
     return buffer.size() - front;
 }
 
-void GDRingBuffer::reset()
+template <typename T>
+void RingBuffer<T>::reset()
 {
     front = 0;
     buffer.clear();

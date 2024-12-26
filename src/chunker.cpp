@@ -1,5 +1,6 @@
 #include "chunker.h"
 #include "inout.h"
+#include "int_fastdiv.h"
 #include "my_profiler.h"
 #include "navigator.h"
 #include "noise_blender.h"
@@ -394,7 +395,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     // var is_central := manhattan < 1
     // var edges := edges_part_of_transition(coord, new_coord, saved_player_coord)
     // var is_internal_chunk := lod < lod_levels.size() - 1
-    auto w = UtilityFunctions::floori(W);
+    auto w = (int_fastdiv)UtilityFunctions::floori(W);
     auto S = 0.0001;
     auto pos = convert_coord_to_position(new_coord.x, new_coord.y);
     auto hmap = (HeightMapShape3D*)(Object*)height_maps[coord];
@@ -407,7 +408,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     auto is_internal_chunk = lod < lod_levels.size() - 1;
 
     // for i in vertices.size():
-    for (size_t i = 0; i < vertices.size(); i++) {
+    for (int i = 0; i < vertices.size(); i++) {
         // 	A = vertices[i]
         // 	@warning_ignore("integer_division")
         // 	var row := i / w
@@ -495,7 +496,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         hmap_scale = height_map_scale(0);
         auto newS = subdivisions(resolution(0));
         w = newS + 2;
-        for (size_t i = 0; i < update_chunk_array.size(); i++) {
+        for (int i = 0; i < update_chunk_array.size(); i++) {
             auto row = i / w;
             auto col = i % w;
             auto j = w * (w - row - 1) + (w - col - 1);

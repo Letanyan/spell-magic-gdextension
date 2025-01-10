@@ -452,7 +452,13 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
 double GDNoiseBlender::grass_height(int biome, double x, double y)
 {
     auto n = terrains.at(biome).noise2d(x, y) / 2.0 + 0.5;
-    auto e = curves.at(biome)->sample(n) / curves.at(biome)->get_max_value();
+    auto max_value = curves.at(biome)->get_max_value();
+    float e;
+    if (max_value <= 0) {
+        e = 0.0;
+    } else {
+        e = curves.at(biome)->sample(n) / max_value;
+    }
     auto s = UtilityFunctions::smoothstep(0.25, 1.0, e);
     if (s == 0.0) {
         return UtilityFunctions::snappedf(e * 4, 0.1);

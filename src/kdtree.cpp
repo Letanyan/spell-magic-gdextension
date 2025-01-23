@@ -5,13 +5,15 @@ using namespace godot;
 
 GDKDTree::GDKDTree(int32_t buffer_capacity)
 {
-    buffer = std::vector<KDNode>(buffer_capacity);
+    buffer = std::vector<KDNode>();
+    buffer.reserve(buffer_capacity);
     root = nullptr;
 }
 
 GDKDTree::GDKDTree()
 {
-    buffer = std::vector<KDNode>(64);
+    buffer = std::vector<KDNode>();
+    buffer.reserve(64);
     root = nullptr;
 }
 

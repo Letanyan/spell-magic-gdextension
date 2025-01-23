@@ -4,6 +4,7 @@
 #include "expr.h"
 #include "fast_noise_2.h"
 #include "inout.h"
+#include "kdtree.h"
 #include "navigator.h"
 #include "noise_blender.h"
 #include "stylemat.h"
@@ -31,6 +32,7 @@ void initialize_example_module(ModuleInitializationLevel p_level)
     ClassDB::register_class<GDStyleMat>();
     ClassDB::register_class<GDChunker>();
     ClassDB::register_class<Vars>();
+    ClassDB::register_class<GDKDTree>();
     // ClassDB::register_class<FN>();
 }
 

@@ -372,26 +372,23 @@ PackedVector3Array GDNavigator::neighbours(CollisionObject3D* p, Vector3 from, i
             to.y = get_world_height_from_node(p, to.x, to.z) + shape_height(shape) / 2.0 + 0.05;
         }
         to.snap(Vector3(distance, (options & MovementOptions::CAN_FLY != 0) ? distance : 0.00001, distance));
-        auto distance_away = get_shape_distance_away(p, from, to, shape, (options & MovementOptions::UNDERGROUND) != 0);
-        if (distance_away[0] == 1.0 && distance_away[1] == 1.0) {
-            result.append(to);
-        } else if (distance_away[0] >= 0.1 && !get_shape_collides(p, from, to, shape, (options & MovementOptions::UNDERGROUND) != 0)) {
-            result.append(from.lerp(to, distance_away[0]));
+        for (float multiplier = -1.0; multiplier <= 0.0; multiplier += 1.0) {
+            Vector3 final_to = to + Vector3(0, multiplier * distance, 0);
+            auto distance_away = get_shape_distance_away(p, from, final_to, shape, (options & MovementOptions::UNDERGROUND) != 0);
+            if (distance_away[0] == 1.0 && distance_away[1] == 1.0) {
+                result.append(final_to);
+            } else if (distance_away[0] >= 0.1 && !get_shape_collides(p, from, final_to, shape, (options & MovementOptions::UNDERGROUND) != 0)) {
+                result.append(from.lerp(final_to, distance_away[0]));
+            }
         }
         direction.rotate(Vector3(0, 1, 0), angle);
     }
 
     auto final_result = PackedVector3Array();
-    if ((options & MovementOptions::CAN_FLY) != 0) {
+    if ((options & MovementOptions::CAN_FLY) != 0 || from.y < get_world_height_from_node(p, from.x, from.z) - distance) {
         for (int i = 0; i < result.size(); i++) {
             auto r = (Vector3)result[i];
             final_result.append(r + Vector3(0, distance, 0));
-        }
-    }
-    if ((options & MovementOptions::UNDERGROUND) != 0) {
-        for (int i = 0; i < result.size(); i++) {
-            auto r = (Vector3)result[i];
-            final_result.append(r + Vector3(0, -distance, 0));
         }
     }
     for (int i = 0; i < result.size(); i++) {

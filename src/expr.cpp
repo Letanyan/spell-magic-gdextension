@@ -754,6 +754,18 @@ bool GDExpr::contains_variable(const godot::String& var_name)
     return false;
 }
 
+String GDExpr::all_variables_is_contained(const Dictionary& dict, const Dictionary& user_funcs)
+{
+    for (auto& e : expression) {
+        if (e.kind == tkVAR) {
+            if (!dict.has(e.raw) && !user_funcs.has(e.raw)) {
+                return e.raw;
+            }
+        }
+    }
+    return "";
+}
+
 bool vector_contains_string(std::vector<godot::String>* vec, godot::String needle)
 {
     for (auto& s : *vec) {
@@ -826,6 +838,7 @@ void GDExpr::_bind_methods()
     ClassDB::bind_method(D_METHOD("compute", "variables", "user_funcs", "debug"), &GDExpr::compute);
     ClassDB::bind_method(D_METHOD("compute_value", "variables", "user_funcs", "debug"), &GDExpr::compute_value);
     ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
+    ClassDB::bind_method(D_METHOD("all_variables_is_contained", "dict", "user_funcs"), &GDExpr::all_variables_is_contained);
 
     ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
     ClassDB::bind_method(D_METHOD("set_error", "error_message"), &GDExpr::set_error);

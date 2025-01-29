@@ -42,6 +42,7 @@ public:
     float compute_value(const Vars* map, const Dictionary& user_funcs, bool debug);
 
     bool contains_variable(const String& var_name);
+    String all_variables_is_contained(const Dictionary& dict, const Dictionary& user_funcs);
     static String bake(const String& expr, const Dictionary& map);
 
     void copy_from(GDExpr* expr);

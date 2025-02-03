@@ -170,7 +170,7 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
         vans = va op Vector3(b, b, b);        \
         value = NAN;                          \
     } else if (std::isnan(b)) {               \
-        auto vb = vector_map[tape_index + 0]; \
+        auto vb = vector_map[tape_index + 1]; \
         vans = Vector3(a, a, a) op vb;        \
         value = NAN;                          \
     } else {                                  \
@@ -194,11 +194,13 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
         if (e.kind == tkNUMBER) {
             prof_number.start();
             if (tape_index == tape.size()) {
-                tape.push_back(e.raw.to_float());
-                vector_map.push_back(std::move(Vector3()));
+                float val = e.raw.to_float();
+                tape.push_back(val);
+                vector_map.push_back(std::move(Vector3(val, val, val)));
             } else {
                 float val = e.raw.to_float();
                 tape[tape_index] = val;
+                vector_map[tape_index] = std::move(Vector3(val, val, val));
             }
             if (debug)
                 UtilityFunctions::print("NUMBER: ", e.raw.to_float());
@@ -320,19 +322,21 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 error = "Incomplete Expression";
                 return 0.0;
             }
-            auto a = tape[tape_index];
-            // FIXME: handle vector
-            double value = a;
+            double value = tape[tape_index];
+            auto vans = vector_map[tape_index];
             if (e.sub_kind == tkopMINUS) {
-                value = -a;
-            }
-            if (std::isnan(value)) {
-                value = 0.0;
+                if (std::isnan(value)) {
+                    vans = -vans;
+                } else {
+                    value = -value;
+                }
             }
             if (tape_index == tape.size()) {
                 tape.push_back(value);
+                vector_map.push_back(std::move(vans));
             } else {
                 tape[tape_index] = value;
+                vector_map[tape_index] = std::move(vans);
             }
             if (debug)
                 UtilityFunctions::print("PREFIX_OP: ", value);
@@ -723,6 +727,18 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
     if (tape_index < 0) {
         error = "Incomplete Expression";
         return 0.0;
+    }
+    if (debug) {
+        UtilityFunctions::print("tape: ------------");
+        UtilityFunctions::print("index: ", tape_index);
+        for (auto v : tape) {
+            UtilityFunctions::print(v);
+        }
+        UtilityFunctions::print("vector tape: ------------");
+        for (auto v : vector_map) {
+            UtilityFunctions::print(v);
+        }
+        UtilityFunctions::print("================");
     }
     auto result = tape[tape_index];
     if (std::isnan(result)) {

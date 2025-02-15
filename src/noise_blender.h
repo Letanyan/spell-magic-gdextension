@@ -60,6 +60,7 @@ public:
 
     std::vector<MyNoise> terrains;
     std::vector<Curve*> curves;
+    std::vector<Curve*> grass_heights;
     PackedVector2Array locations;
     std::vector<Vector3> colors;
     PackedFloat32Array height_map_store;
@@ -83,7 +84,7 @@ public:
     void set_biome_noise(String encoded, int seed, int axis);
     void set_elevation_mix_exp(double value);
 
-    void add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color);
+    void add_biome(String terrain, int seed, Curve* curve, Curve* grass_height, Vector2 location, Vector3 color);
 
     void compute_biome_stats(double x, double y, double scale);
     void compute_biome_map_stats(double x, double y, double w, double h, double scale);

@@ -49,7 +49,7 @@ void GDNoiseBlender::_bind_methods()
 {
     ClassDB::bind_method(D_METHOD("set_biome_noise", "encoded", "seed", "axis"), &GDNoiseBlender::set_biome_noise);
     ClassDB::bind_method(D_METHOD("set_elevation_mix_exp", "value"), &GDNoiseBlender::set_elevation_mix_exp);
-    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "location", "color"), &GDNoiseBlender::add_biome);
+    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "grass_height", "location", "color"), &GDNoiseBlender::add_biome);
     // ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
     ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "scale"), &GDNoiseBlender::compute_biome_stats);
     ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s"), &GDNoiseBlender::compute_biome_map_stats);
@@ -73,6 +73,7 @@ GDNoiseBlender::GDNoiseBlender()
 
     terrains = std::vector<MyNoise>();
     curves = std::vector<Curve*>();
+    grass_heights = std::vector<Curve*>();
     locations = PackedVector2Array();
     colors = std::vector<Vector3>();
     distances = std::vector<double>();
@@ -208,10 +209,11 @@ ImageTexture* GDNoiseBlender::height_texture(PackedFloat32Array data, float w, f
     return res;
 }
 
-void GDNoiseBlender::add_biome(String terrain, int seed, Curve* curve, Vector2 location, Vector3 color)
+void GDNoiseBlender::add_biome(String terrain, int seed, Curve* curve, Curve* grass_height, Vector2 location, Vector3 color)
 {
     terrains.push_back(MyNoise(terrain.utf8().get_data(), seed));
     curves.push_back(curve);
+    grass_heights.push_back(grass_height);
     locations.append(location);
     colors.push_back(color);
     distances.push_back(0.0);
@@ -452,17 +454,10 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
 double GDNoiseBlender::grass_height(int biome, double x, double y)
 {
     auto n = terrains.at(biome).noise2d(x, y) / 2.0 + 0.5;
-    auto max_value = curves.at(biome)->get_max_value();
-    float e;
-    if (max_value <= 0) {
-        e = 0.0;
+    float e = grass_heights.at(biome)->sample(n);
+    if (e < 0.25) {
+        return 0.0;
     } else {
-        e = curves.at(biome)->sample(n) / max_value;
-    }
-    auto s = UtilityFunctions::smoothstep(0.25, 1.0, e);
-    if (s == 0.0) {
-        return UtilityFunctions::snappedf(e * 4, 0.1);
-    } else {
-        return 0.5 + s;
+        return e;
     }
 }

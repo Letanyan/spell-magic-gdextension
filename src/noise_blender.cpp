@@ -52,7 +52,7 @@ void GDNoiseBlender::_bind_methods()
     ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "grass_height", "location", "color"), &GDNoiseBlender::add_biome);
     // ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
     ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "scale", "size"), &GDNoiseBlender::compute_biome_stats);
-    ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s"), &GDNoiseBlender::compute_biome_map_stats);
+    ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s", "calculate_colors"), &GDNoiseBlender::compute_biome_map_stats, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
     ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
     ClassDB::bind_method(D_METHOD("get_biomes_map"), &GDNoiseBlender::get_biomes_map);
@@ -63,7 +63,7 @@ void GDNoiseBlender::_bind_methods()
     ClassDB::bind_method(D_METHOD("biome_texture", "x", "y", "w", "h", "scale", "axis"), &GDNoiseBlender::biome_texture);
     ClassDB::bind_method(D_METHOD("height_texture", "data", "w", "h"), &GDNoiseBlender::height_texture);
     ClassDB::bind_method(D_METHOD("grass_height", "biome", "x", "y"), &GDNoiseBlender::grass_height);
-    ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale"), &GDNoiseBlender::height_map);
+    ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale", "calculate_colors"), &GDNoiseBlender::height_map, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("get_locations"), &GDNoiseBlender::get_locations);
 }
 
@@ -369,14 +369,14 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
             if (calculate_colors && dist <= (axial_weight + 1.0)) {
                 float mix_alpha = pow(1.0 - dist / (axial_weight + 1.0), 3.0);
                 c = oklab_mix(Vector3(1, 1, 1), colors[i], mix_alpha);
-                // clr = clr * c;
+                clr = clr * c;
             }
             if (dist < min_distance) {
                 min_distances_map[r] = dist;
                 min_distances_index_map[r] = i;
                 min_distance = dist;
                 pos = i;
-                clr = colors[i];
+                // clr = colors[i];
             }
         }
         // Vector3 temp_color = rgb2hsv(Vector3(clr.x, clr.y, clr.z));

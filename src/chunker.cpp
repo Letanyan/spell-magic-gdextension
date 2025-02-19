@@ -269,9 +269,9 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         auto newZ = z / newR - newW / 2.0;
         newX = UtilityFunctions::snappedf(newX, 1.0);
         newZ = UtilityFunctions::snappedf(newZ, 1.0);
-        yss = blender->height_map(newX, newZ, newW, newW, newR);
+        yss = blender->height_map(newX, newZ, newW, newW, newR, true);
         biome_maps[coord] = blender->get_biomes_map();
-        color_maps[coord] = PackedColorArray();
+        color_maps[coord] = blender->get_colors_map();
     } else {
         biome_maps[coord] = PackedInt32Array();
         color_maps[coord] = PackedColorArray();
@@ -829,6 +829,16 @@ Dictionary GDChunker::group_spawn_points(Vector2i coord, float spacing)
 int32_t GDChunker::get_biome_at_position(double x, double z)
 {
     auto coord = convert_position_to_coord(x, z);
+    auto lod = (int32_t)chunk_lods[coord];
+    if (lod >= track_biomes_upto_lod) {
+        auto lod_width = (int64_t)lod_levels[track_biomes_upto_lod - 1];
+        if (abs(coord.x - player_coord.x) >= lod_width) {
+            coord.x += UtilityFunctions::signi(player_coord.x - coord.x);
+        }
+        if (abs(coord.y - player_coord.y) >= lod_width) {
+            coord.y += UtilityFunctions::signi(player_coord.y - coord.y);
+        }
+    }
     auto biome_map = (PackedInt32Array)biome_maps[coord];
     auto pos = (Vector2)chunk_positions[coord];
 
@@ -839,20 +849,28 @@ int32_t GDChunker::get_biome_at_position(double x, double z)
     auto base_x = pos.x - chunk_width * 0.5;
     auto base_z = pos.y - chunk_width * 0.5;
 
-    auto c0 = UtilityFunctions::roundf((chunk_width - (x - base_x)) / scale);
-    auto r0 = UtilityFunctions::roundf((chunk_width - (z - base_z)) / scale);
+    auto c0 = UtilityFunctions::clampf(UtilityFunctions::roundf((x - base_x) / scale), 0, W - 1);
+    auto r0 = UtilityFunctions::clampf(UtilityFunctions::roundf((z - base_z) / scale), 0, W - 1);
 
     if (c0 + r0 * W > biome_map.size()) {
         return 1;
     }
-    // UtilityFunctions::print(c0, " + ", r0, " * ", W, " | ", subdivide);
-    // UtilityFunctions::print("(", chunk_width, " - (", x, " - ", base_x, ")) / ", scale);
     return biome_map[c0 + r0 * W];
 }
 
 Color GDChunker::get_color_at_position(double x, double z)
 {
     auto coord = convert_position_to_coord(x, z);
+    auto lod = (int32_t)chunk_lods[coord];
+    if (lod >= track_biomes_upto_lod) {
+        auto lod_width = (int64_t)lod_levels[track_biomes_upto_lod - 1];
+        if (abs(coord.x - player_coord.x) >= lod_width) {
+            coord.x += UtilityFunctions::signi(player_coord.x - coord.x);
+        }
+        if (abs(coord.y - player_coord.y) >= lod_width) {
+            coord.y += UtilityFunctions::signi(player_coord.y - coord.y);
+        }
+    }
     auto color_map = (PackedColorArray)color_maps[coord];
     auto pos = (Vector2)chunk_positions[coord];
 
@@ -863,13 +881,11 @@ Color GDChunker::get_color_at_position(double x, double z)
     auto base_x = pos.x - chunk_width * 0.5;
     auto base_z = pos.y - chunk_width * 0.5;
 
-    auto c0 = UtilityFunctions::roundf((chunk_width - (x - base_x)) / scale);
-    auto r0 = UtilityFunctions::roundf((chunk_width - (z - base_z)) / scale);
+    auto c0 = UtilityFunctions::clampf(UtilityFunctions::roundf((x - base_x) / scale), 0, W - 1);
+    auto r0 = UtilityFunctions::clampf(UtilityFunctions::roundf((z - base_z) / scale), 0, W - 1);
 
     if (c0 + r0 * W >= color_map.size()) {
-        // UtilityFunctions::print(coord, ": ", c0, " + ", r0, " * ", W, " >= ", color_map.size());
-        // UtilityFunctions::print(chunk_width, " - ", x, " - ", base_x, " / ", scale);
-        return Color();
+        return Color(0, 0, 0);
     }
     return color_map[c0 + r0 * W];
 }

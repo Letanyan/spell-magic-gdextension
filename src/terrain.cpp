@@ -718,7 +718,7 @@ void GDTerrain::place_grass(Vector2 delta)
                 p.y = -10000;
             } else {
                 p.y = wh;
-                blender->compute_biome_stats(p.x, p.z, R);
+                blender->compute_biome_stats(p.x, p.z, R, chunk_size);
                 auto h = blender->grass_height(blender->biome, -p.x, -p.y); // use p.y for more consistency
                 if (h == 0) {
                     p.y = -10000;

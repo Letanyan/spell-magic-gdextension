@@ -61,6 +61,7 @@ void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level,
     this->bodies = Dictionary();
     this->height_maps = Dictionary();
     this->biome_maps = Dictionary();
+    this->color_maps = Dictionary();
 
     grass_size = 1.0;
     grass_mesh_instance = nullptr;
@@ -149,7 +150,6 @@ void GDChunker::init_chunks(float x, float z)
         auto gm = new MultiMesh();
         gm->set_transform_format(MultiMesh::TRANSFORM_3D);
         gm->set_use_custom_data(true);
-        gm->set_use_colors(true);
         gm->set_instance_count(count_grass_instances());
         gm->set_visible_instance_count(0);
         gm->set_mesh(grass_mesh_instance);
@@ -240,6 +240,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
             chunk_vertices.append(vertices[i]);
         }
     }
+    // chunk_width / (subdivisions(resolution(0)) + 1)
     auto subdivide = subdivisions(res);
     auto R = chunk_width / (subdivide + 1);
     auto W = subdivide + 2;
@@ -253,12 +254,13 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     auto biome_x_texture = blender->biome_texture(X, Z, W, W, R, 0);
     auto biome_z_texture = blender->biome_texture(X, Z, W, W, R, 1);
     auto A = Vector3();
-    auto ys = blender->height_map(X, Z, W, W, R);
-    auto yss = PackedFloat32Array();
     auto lod = (int64_t)chunk_lods[coord];
+    auto ys = blender->height_map(X, Z, W, W, R, lod == 0);
+    auto yss = PackedFloat32Array();
 
     if (lod == 0) {
         biome_maps[coord] = blender->get_biomes_map();
+        color_maps[coord] = blender->get_colors_map();
     } else if (lod < track_biomes_upto_lod) {
         auto newS = subdivisions(resolution(0));
         auto newR = chunk_width / (newS + 1);
@@ -269,8 +271,10 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         newZ = UtilityFunctions::snappedf(newZ, 1.0);
         yss = blender->height_map(newX, newZ, newW, newW, newR);
         biome_maps[coord] = blender->get_biomes_map();
+        color_maps[coord] = PackedColorArray();
     } else {
         biome_maps[coord] = PackedInt32Array();
+        color_maps[coord] = PackedColorArray();
     }
 
     auto w = (int_fastdiv)UtilityFunctions::floori(W);
@@ -415,6 +419,7 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
             }
             swap_keys(height_maps, coord0, coord1);
             swap_keys(biome_maps, coord0, coord1);
+            swap_keys(color_maps, coord0, coord1);
             swap_keys(water_chunk_rids, coord0, coord1);
             swap_keys(water_mesh_rids, coord0, coord1);
             swap_keys(water_mats, coord0, coord1);
@@ -432,6 +437,7 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
             }
             move_key(height_maps, coord0, coord1);
             move_key(biome_maps, coord0, coord1);
+            move_key(color_maps, coord0, coord1);
             move_key(water_chunk_rids, coord0, coord1);
             move_key(water_mesh_rids, coord0, coord1);
             move_key(water_mats, coord0, coord1);
@@ -820,6 +826,54 @@ Dictionary GDChunker::group_spawn_points(Vector2i coord, float spacing)
     return result;
 }
 
+int32_t GDChunker::get_biome_at_position(double x, double z)
+{
+    auto coord = convert_position_to_coord(x, z);
+    auto biome_map = (PackedInt32Array)biome_maps[coord];
+    auto pos = (Vector2)chunk_positions[coord];
+
+    auto subdivide = subdivisions(resolution(0));
+    auto scale = chunk_width / (subdivide + 1);
+    auto W = subdivide + 2;
+
+    auto base_x = pos.x - chunk_width * 0.5;
+    auto base_z = pos.y - chunk_width * 0.5;
+
+    auto c0 = UtilityFunctions::roundf((chunk_width - (x - base_x)) / scale);
+    auto r0 = UtilityFunctions::roundf((chunk_width - (z - base_z)) / scale);
+
+    if (c0 + r0 * W > biome_map.size()) {
+        return 1;
+    }
+    // UtilityFunctions::print(c0, " + ", r0, " * ", W, " | ", subdivide);
+    // UtilityFunctions::print("(", chunk_width, " - (", x, " - ", base_x, ")) / ", scale);
+    return biome_map[c0 + r0 * W];
+}
+
+Color GDChunker::get_color_at_position(double x, double z)
+{
+    auto coord = convert_position_to_coord(x, z);
+    auto color_map = (PackedColorArray)color_maps[coord];
+    auto pos = (Vector2)chunk_positions[coord];
+
+    auto subdivide = subdivisions(resolution(0));
+    auto scale = chunk_width / (subdivide + 1);
+    auto W = subdivide + 2;
+
+    auto base_x = pos.x - chunk_width * 0.5;
+    auto base_z = pos.y - chunk_width * 0.5;
+
+    auto c0 = UtilityFunctions::roundf((chunk_width - (x - base_x)) / scale);
+    auto r0 = UtilityFunctions::roundf((chunk_width - (z - base_z)) / scale);
+
+    if (c0 + r0 * W >= color_map.size()) {
+        // UtilityFunctions::print(coord, ": ", c0, " + ", r0, " * ", W, " >= ", color_map.size());
+        // UtilityFunctions::print(chunk_width, " - ", x, " - ", base_x, " / ", scale);
+        return Color();
+    }
+    return color_map[c0 + r0 * W];
+}
+
 void GDChunker::update_environment(double x, double y)
 {
     auto old_position = player_position;
@@ -850,7 +904,6 @@ void GDChunker::place_grass(Vector2 delta)
     auto p = Vector3();
     auto whn = Vector3();
     auto wh = 0.0;
-    auto clr = Color(1, 1, 1, 1);
     auto custom = Color(1, 1, 1, 1);
     auto R = get_noise_scale();
     auto normal_height = Dictionary();
@@ -873,7 +926,7 @@ void GDChunker::place_grass(Vector2 delta)
                 p.y = -10000;
             } else {
                 p.y = wh;
-                blender->compute_biome_stats(p.x, p.z, R);
+                // blender->compute_biome_stats(p.x, p.z, R, chunk_width);
                 auto h = blender->grass_height(blender->biome, -p.x, -p.y); // use p.y for more consistency
                 if (h == 0) {
                     p.y = -10000;
@@ -885,10 +938,8 @@ void GDChunker::place_grass(Vector2 delta)
                     nt.set_basis(basis.orthonormalized());
                     nt = nt.rotated_local(Vector3(0, 1, 0), UtilityFunctions::randf() * 2 * Math_PI);
                     nt = nt.scaled_local(Vector3(1, h, 1) * 200);
-                    clr.a = fade_time;
-                    custom = blender->color;
+                    custom = get_color_at_position(p.x, p.z);
                     custom.a = p.z;
-                    mm->set_instance_color(i, clr);
                     mm->set_instance_custom_data(i, custom);
                 }
             }
@@ -1000,4 +1051,6 @@ void GDChunker::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_min_height_position"), &GDChunker::get_min_height_position);
 
     ClassDB::bind_method(D_METHOD("group_spawn_points", "coord", "spacing"), &GDChunker::group_spawn_points);
+    ClassDB::bind_method(D_METHOD("get_biome_at_position", "x", "z"), &GDChunker::get_biome_at_position);
+    ClassDB::bind_method(D_METHOD("get_color_at_position", "x", "z"), &GDChunker::get_color_at_position);
 }

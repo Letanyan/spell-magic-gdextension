@@ -46,7 +46,7 @@ protected:
     std::vector<float> biome_noise_w_map;
     std::vector<float> total_distances_map;
     std::vector<float> min_distances_map;
-    std::vector<Color> colors_map;
+    PackedColorArray colors_map;
     PackedInt32Array biomes_map;
 
 public:
@@ -80,16 +80,17 @@ public:
     double get_total_distance();
     int get_biome();
     PackedInt32Array get_biomes_map();
+    PackedColorArray get_colors_map();
 
     void set_biome_noise(String encoded, int seed, int axis);
     void set_elevation_mix_exp(double value);
 
     void add_biome(String terrain, int seed, Curve* curve, Curve* grass_height, Vector2 location, Vector3 color);
 
-    void compute_biome_stats(double x, double y, double scale);
-    void compute_biome_map_stats(double x, double y, double w, double h, double scale);
-    double height(double x, double y, double scale);
-    PackedFloat32Array height_map(double x, double y, double w, double h, double scale);
+    void compute_biome_stats(double x, double y, double scale, double size);
+    void compute_biome_map_stats(double x, double y, double w, double h, double scale, bool calculate_colors = false);
+    double height(double x, double y, double scale, double size);
+    PackedFloat32Array height_map(double x, double y, double w, double h, double scale, bool calculate_colors = false);
 
     NoiseTexture2D* texture(FastNoiseLite* noise, double x, double y, double w, double h, double scale);
     ImageTexture* fast_texture(MyNoise noise, double x, double y, double w, double h, double scale);

@@ -150,6 +150,7 @@ enum GDTokenScalarVarKind : int16_t {
     tkv_r8,
     tkv_r9,
     tkv_pi,
+    tkv_tau,
     tkv_N,
     tkv_M,
     tkv_C,

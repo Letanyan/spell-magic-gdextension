@@ -85,6 +85,7 @@ protected:
     Dictionary bodies; // [Vector2i(coord)]StaticBody
     Dictionary height_maps; // [Vector2i(coord)]HeightMapShape3D
     Dictionary biome_maps; // [Vector2i(coord)]PackedInt32Array(biome)
+    Dictionary color_maps; // [Vector2i(coord)]PackedColorArray
 
     double grass_size;
     MultiMeshInstance3D* grass_mesh;
@@ -153,6 +154,8 @@ public:
     float get_noise_scale();
     static bool contains_neighbour_point(const PackedVector2Array& collection, Vector2 point, float spacing);
     Dictionary group_spawn_points(Vector2i coord, float spacing);
+    int32_t get_biome_at_position(double x, double z);
+    Color get_color_at_position(double x, double z);
 
     void update_environment(double x, double y);
     void place_grass(Vector2 delta);

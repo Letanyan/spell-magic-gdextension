@@ -46,7 +46,15 @@ void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level,
 
     min_height_position = Vector3(NAN, NAN, NAN);
     max_height_position = Vector3(NAN, NAN, NAN);
-    chunk_vertices = PackedVector3Array();
+    chunk_vertices = std::vector<PackedVector3Array>();
+    chunk_vertices.reserve(lods.size());
+    chunk_mesh_data = std::vector<Array>();
+    chunk_mesh_data.reserve(lods.size());
+    for (int i = 0; i < lods.size(); i++) {
+        chunk_vertices.push_back(PackedVector3Array());
+        chunk_mesh_data.push_back(Array());
+    }
+
     player_coord = Vector2i();
     chunk_update_queue = std::queue<ChunkUpdateParameters>();
 
@@ -231,15 +239,22 @@ StaticBody3D* GDChunker::create_static_body(float size, float res, HeightMapShap
 
 void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vector2i saved_player_coord)
 {
-    // FIXME: make faster
     auto mesh = (RID)mesh_rids[coord];
-    auto mesh_data = RenderingServer::get_singleton()->mesh_surface_get_arrays(mesh, 0);
-    auto vertices = (PackedVector3Array)mesh_data[Mesh::ArrayType::ARRAY_VERTEX];
-    if (chunk_vertices.is_empty() && (int64_t)chunk_lods[coord] == 0) {
-        for (size_t i = 0; i < vertices.size(); i++) {
-            chunk_vertices.append(vertices[i]);
-        }
+    PackedVector3Array vertices;
+    Array mesh_data;
+    auto lod_level = (int64_t)chunk_lods[coord];
+    if (chunk_vertices[lod_level].is_empty()) {
+        auto plane = new PlaneMesh();
+        plane->set_size(Vector2(chunk_width, chunk_width));
+        auto subdivide = subdivisions(res);
+        plane->set_subdivide_depth(subdivide);
+        plane->set_subdivide_width(subdivide);
+
+        chunk_mesh_data[lod_level] = plane->get_mesh_arrays();
+        chunk_vertices[lod_level] = chunk_mesh_data[lod_level][Mesh::ArrayType::ARRAY_VERTEX];
     }
+    vertices = chunk_vertices[lod_level];
+    mesh_data = chunk_mesh_data[lod_level];
     // chunk_width / (subdivisions(resolution(0)) + 1)
     auto subdivide = subdivisions(res);
     auto R = chunk_width / (subdivide + 1);
@@ -609,7 +624,7 @@ Vector2i GDChunker::get_player_coord()
 
 PackedVector3Array GDChunker::get_chunk_vertices()
 {
-    return chunk_vertices;
+    return chunk_vertices[0];
 }
 
 int64_t GDChunker::get_track_biomes_upto_lod()
@@ -785,9 +800,9 @@ Dictionary GDChunker::group_spawn_points(Vector2i coord, float spacing)
     bool const DEBUG = false;
     auto found_subsets = std::vector<int>();
     found_subsets.reserve(2);
-    for (size_t vidx = 0; vidx < chunk_vertices.size(); vidx++) {
+    for (size_t vidx = 0; vidx < chunk_vertices[0].size(); vidx++) {
         for (float scale_offset = 1.0; scale_offset <= 1.0; scale_offset += 0.25) {
-            auto vp = chunk_vertices[vidx];
+            auto vp = chunk_vertices[0][vidx];
             auto p = -Vector2(vp.x, vp.z) + point_offset * scale_offset + offsetv;
             points.append(p);
             auto biome = (int)biome_map[b];

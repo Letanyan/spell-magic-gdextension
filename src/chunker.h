@@ -95,7 +95,8 @@ protected:
     bool find_bound_coords;
     Vector3 min_height_position;
     Vector3 max_height_position;
-    PackedVector3Array chunk_vertices;
+    std::vector<PackedVector3Array> chunk_vertices;
+    std::vector<Array> chunk_mesh_data;
 
     Vector2i player_coord;
     Vector2 player_position;

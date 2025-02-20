@@ -50,11 +50,6 @@ protected:
     PackedInt32Array biomes_map;
 
 public:
-    GDProfiler profile_compute;
-    GDProfiler profile_sum_distances;
-    GDProfiler profile_curve_sample;
-    GDProfiler profile_get_noise;
-
     GDNoiseBlender();
     ~GDNoiseBlender();
 

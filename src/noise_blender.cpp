@@ -394,22 +394,17 @@ void GDNoiseBlender::compute_biome_map_stats(double x, double y, double w, doubl
 double GDNoiseBlender::height(double x, double y, double scale, double size)
 {
     double result = 0.0;
-    profile_compute.start();
     compute_biome_stats(x, y, scale, size);
-    profile_compute.lap();
 
     double X = UtilityFunctions::snappedf(x, 0.0001);
     double Y = UtilityFunctions::snappedf(y, 0.0001);
 
-    profile_sum_distances.start();
     for (int i = 0; i < distances.size(); i++) {
         double e = terrains[i].noise2d(X, Y) / 2.0 + 0.5;
         e = ((Curve*)(Object*)curves[i])->sample(e);
         double m = powf(1.0 - distances[i] / total_distance, 20.0);
         result += e * m;
     }
-    // result += 400.0;
-    profile_sum_distances.lap();
 
     return result;
 }
@@ -424,8 +419,6 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
 
     std::vector<float> terrain_noise = {};
     terrain_noise.resize(map_size);
-    // auto prof = GDProfiler();
-    // prof.start();
     for (int i = 0; i < locations.size(); i++) {
         terrains[i].noise2d(terrain_noise.data(), x, y, w, h, scale);
         auto curve = curves[i];
@@ -450,15 +443,6 @@ PackedFloat32Array GDNoiseBlender::height_map(double x, double y, double w, doub
             }
         }
     }
-    // prof.stop();
-    // UtilityFunctions::print("curve: ", prof.elapsed);
-    // for (int j = 0; j < map_size; j++) {
-    //     // double e = terrains[min_distances_index_map[j]].noise2d(X, Y) * 0.5 + 0.5;
-    //     double e = terrain_noise[j] * 0.5 + 0.5;
-    //     e = ((Curve*)(Object*)curves[min_distances_index_map[j]])->sample(e);
-    //     double m = powf(1.0 - min_distances_map[j] / total_distances_map[j], 1.0);
-    //     result[j] = UtilityFunctions::lerp(result[j], e * m, 0.75);
-    // }
 
     return height_map_store;
 }

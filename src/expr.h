@@ -17,11 +17,8 @@ class GDExpr : public RefCounted {
 private:
 protected:
     static void _bind_methods();
-
-    GDProfiler prof_number;
-    GDProfiler prof_var;
-    GDProfiler prof_binop;
-    GDProfiler prof_func;
+    bool contains_time_dependent;
+    int32_t variable_update_set;
 
 public:
     GDExpr();
@@ -42,8 +39,13 @@ public:
     float compute_value(const Vars* map, const Dictionary& user_funcs, bool debug);
 
     bool contains_variable(const String& var_name);
+    bool contains_variable_token(const int16_t var_token);
     String all_variables_is_contained(const Dictionary& dict, const Dictionary& user_funcs);
+    String all_variable_tokens_is_contained(const Vars& dict, const Dictionary& user_funcs);
     static String bake(const String& expr, const Dictionary& map);
+
+    bool get_contains_time_dependent();
+    int32_t get_variable_update_set();
 
     void copy_from(GDExpr* expr);
 

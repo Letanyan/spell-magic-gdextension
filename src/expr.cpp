@@ -19,10 +19,6 @@ void GDExpr::set_error(const String& err_message)
 
 GDExpr::GDExpr()
 {
-    prof_number = GDProfiler();
-    prof_var = GDProfiler();
-    prof_binop = GDProfiler();
-    prof_func = GDProfiler();
 }
 
 GDExpr::~GDExpr()
@@ -37,7 +33,7 @@ GDExpr* GDExpr::build_in(const godot::String& expr)
 
 void GDExpr::build(const godot::String& expr)
 {
-    auto tokens = godot::tokenize(expr);
+    auto tokens = tokenize(expr);
     build_from_tokens(tokens);
 }
 
@@ -49,6 +45,7 @@ void GDExpr::build_from_tokens(const std::vector<GDToken>& tokens)
     auto operators = std::vector<GDToken>();
     operators.reserve(tokens.size());
     int i = 0;
+    variable_update_set = 0;
     while (i < tokens.size()) {
         auto token = tokens[i];
         i += 1;
@@ -56,6 +53,38 @@ void GDExpr::build_from_tokens(const std::vector<GDToken>& tokens)
         if (token.kind == tkNUMBER) {
             expression.push_back(std::move(token));
         } else if (token.kind == tkFUNC || token.kind == tkVAR) {
+            if (token.kind == tkVAR) {
+                if (token.sub_kind >= tkv_t && token.sub_kind <= tkv_tC) {
+                    contains_time_dependent = true;
+                    if (token.sub_kind >= tkv_tu && token.sub_kind <= tkv_tw) {
+                        variable_update_set |= 1 << tkvv_tuvw;
+                    }
+                    if (token.sub_kind >= tkv_tru && token.sub_kind <= tkv_trw) {
+                        variable_update_set |= 1 << tkvv_truvw;
+                    }
+                    if (token.sub_kind >= tkv_tU && token.sub_kind <= tkv_tW) {
+                        variable_update_set |= 1 << tkvv_tUVW;
+                    }
+                    if (token.sub_kind >= tkv_trU && token.sub_kind <= tkv_trW) {
+                        variable_update_set |= 1 << tkvv_trUVW;
+                    }
+                    if (token.sub_kind >= tkv_ti && token.sub_kind <= tkv_tj) {
+                        variable_update_set |= 1 << tkvv_tijk;
+                    }
+                    if (token.sub_kind >= tkv_tri && token.sub_kind <= tkv_trj) {
+                        variable_update_set |= 1 << tkvv_trijk;
+                    }
+                    if (token.sub_kind >= tkv_tI && token.sub_kind <= tkv_tJ) {
+                        variable_update_set |= 1 << tkvv_tIJK;
+                    }
+                    if (token.sub_kind >= tkv_trI && token.sub_kind <= tkv_trJ) {
+                        variable_update_set |= 1 << tkvv_trIJK;
+                    }
+                    if (token.sub_kind == tkv_C) {
+                        variable_update_set |= 1 << 8;
+                    }
+                }
+            }
             operators.push_back(std::move(token));
         } else if (token.kind == tkOP) {
             if (operators.size() > 0) {
@@ -192,7 +221,6 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
         }
 
         if (e.kind == tkNUMBER) {
-            prof_number.start();
             if (tape_index == tape.size()) {
                 float val = e.raw.to_float();
                 tape.push_back(val);
@@ -205,9 +233,7 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
             if (debug)
                 UtilityFunctions::print("NUMBER: ", e.raw.to_float());
             tape_index += 1;
-            prof_number.lap();
         } else if (e.kind == tkVAR) {
-            prof_var.start();
             float value = 0.0;
             auto vans = Vector3();
             auto map_get = map->get(e);
@@ -257,9 +283,7 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 vector_map[tape_index] = std::move(vans);
             }
             tape_index += 1;
-            prof_var.lap();
         } else if (e.kind == tkOP) {
-            prof_binop.start();
             tape_index -= 1;
             if (tape_index < 0) {
                 error = "Incomplete Expression";
@@ -315,7 +339,6 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 vector_map[tape_index] = std::move(vans);
             }
             tape_index += 1;
-            prof_binop.lap();
         } else if (e.kind == tkPREFIX_OP) {
             tape_index -= 1;
             if (tape_index < 0) {
@@ -342,7 +365,6 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 UtilityFunctions::print("PREFIX_OP: ", value);
             tape_index += 1;
         } else if (e.kind == tkFUNC) {
-            prof_func.start();
             tape_index -= 1;
             if (tape_index < 0) {
                 error = e.raw + " requires at least 1 parameter";
@@ -715,7 +737,6 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 vector_map[tape_index] = std::move(vans);
             }
             tape_index += 1;
-            prof_func.lap();
         }
     }
 
@@ -770,6 +791,16 @@ bool GDExpr::contains_variable(const godot::String& var_name)
     return false;
 }
 
+bool GDExpr::contains_variable_token(const int16_t var_token)
+{
+    for (auto& e : expression) {
+        if (e.kind == tkVAR && e.sub_kind == var_token) {
+            return true;
+        }
+    }
+    return false;
+}
+
 String GDExpr::all_variables_is_contained(const Dictionary& dict, const Dictionary& user_funcs)
 {
     for (auto& e : expression) {
@@ -777,6 +808,16 @@ String GDExpr::all_variables_is_contained(const Dictionary& dict, const Dictiona
             if (!dict.has(e.raw) && !user_funcs.has(e.raw)) {
                 return e.raw;
             }
+        }
+    }
+    return "";
+}
+
+String GDExpr::all_variable_tokens_is_contained(const Vars& dict, const Dictionary& user_funcs)
+{
+    for (auto& e : expression) {
+        if (!dict.has(e) && (e.kind == tkVAR && !user_funcs.has(e.raw))) {
+            return e.raw;
         }
     }
     return "";
@@ -821,13 +862,23 @@ void bake_into_vector(const std::vector<GDToken>& tokens, std::vector<GDToken>* 
 
 String GDExpr::bake(const String& expr, const Dictionary& map)
 {
-    auto tokens = tokenize(expr);
+    auto tokens = godot::tokenize(expr);
     auto output = std::vector<GDToken>();
     auto chain = std::vector<String>();
     bake_into_vector(tokens, &output, map, &chain);
     auto e = GDExpr();
     e.build_from_tokens(output);
     return godot::constant_folding(e.expression, map);
+}
+
+bool GDExpr::get_contains_time_dependent()
+{
+    return contains_time_dependent;
+}
+
+int32_t GDExpr::get_variable_update_set()
+{
+    return variable_update_set;
 }
 
 void GDExpr::copy_from(GDExpr* expr)
@@ -840,7 +891,6 @@ void GDExpr::copy_from(GDExpr* expr)
 
 void GDExpr::print_profiling()
 {
-    UtilityFunctions::print("number: ", prof_number.elapsed, ", var: ", prof_var.elapsed, ", binop: ", prof_binop.elapsed, ", func: ", prof_func.elapsed);
 }
 
 void GDExpr::_bind_methods()
@@ -854,7 +904,11 @@ void GDExpr::_bind_methods()
     ClassDB::bind_method(D_METHOD("compute", "variables", "user_funcs", "debug"), &GDExpr::compute);
     ClassDB::bind_method(D_METHOD("compute_value", "variables", "user_funcs", "debug"), &GDExpr::compute_value);
     ClassDB::bind_method(D_METHOD("contains_variable", "variable_name"), &GDExpr::contains_variable);
+    ClassDB::bind_method(D_METHOD("contains_variable_token", "variable_token"), &GDExpr::contains_variable_token);
     ClassDB::bind_method(D_METHOD("all_variables_is_contained", "dict", "user_funcs"), &GDExpr::all_variables_is_contained);
+
+    ClassDB::bind_method(D_METHOD("get_contains_time_dependent"), &GDExpr::get_contains_time_dependent);
+    ClassDB::bind_method(D_METHOD("get_variable_update_set"), &GDExpr::get_variable_update_set);
 
     ClassDB::bind_method(D_METHOD("get_error"), &GDExpr::get_error);
     ClassDB::bind_method(D_METHOD("set_error", "error_message"), &GDExpr::set_error);

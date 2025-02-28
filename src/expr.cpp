@@ -889,6 +889,11 @@ void GDExpr::copy_from(GDExpr* expr)
     this->error = expr->error;
 }
 
+String GDExpr::infix_description()
+{
+    return godot::rpn_to_infix(expression);
+}
+
 void GDExpr::print_profiling()
 {
 }
@@ -915,6 +920,7 @@ void GDExpr::_bind_methods()
     ClassDB::add_property("GDExpr", PropertyInfo(Variant::STRING, "error"), "set_error", "get_error");
 
     ClassDB::bind_method(D_METHOD("token_description"), &GDExpr::token_description);
+    ClassDB::bind_method(D_METHOD("infix_description"), &GDExpr::infix_description);
 
     ClassDB::bind_method(D_METHOD("print_profiling"), &GDExpr::print_profiling);
 }

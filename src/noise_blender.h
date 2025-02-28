@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#define axial_weight 2.0
+#define axial_weight 2.0f
 
 namespace godot {
 
@@ -39,7 +39,7 @@ protected:
 
     float get_noise_2d(float x, float y);
 
-    std::vector<float> distances_map;
+    TypedArray<PackedFloat32Array> distances_map;
     std::vector<float> biome_noise_x_map;
     std::vector<float> biome_noise_y_map;
     std::vector<float> biome_noise_z_map;
@@ -76,6 +76,7 @@ public:
     int get_biome();
     PackedInt32Array get_biomes_map();
     PackedColorArray get_colors_map();
+    TypedArray<PackedFloat32Array> get_distances_map();
 
     void set_biome_noise(String encoded, int seed, int axis);
     void set_elevation_mix_exp(double value);

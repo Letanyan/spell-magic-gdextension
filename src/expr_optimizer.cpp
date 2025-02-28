@@ -925,7 +925,11 @@ String godot::rpn_to_infix(const std::vector<GDToken>& tokens)
                 lhs.expr = String("(") + lhs.expr + String(")");
                 lhs.prec = 1000;
             }
-            lhs.expr += " " + tok.raw + " ";
+            if (tok.raw == ".") {
+                lhs.expr += tok.raw;
+            } else {
+                lhs.expr += " " + tok.raw + " ";
+            }
             if (rhs.prec < tok_prec || (rhs.prec == tok_prec && !godot::gd_operator_is_right_associative(tok))) {
                 lhs.expr += String("(") + rhs.expr + String(")");
                 lhs.prec = 1000;

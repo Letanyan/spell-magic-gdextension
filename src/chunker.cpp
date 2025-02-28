@@ -70,6 +70,7 @@ void GDChunker::init(float chunk_width, float chunk_resolution, float sea_level,
     this->height_maps = Dictionary();
     this->biome_maps = Dictionary();
     this->color_maps = Dictionary();
+    this->distances_maps = Dictionary();
 
     grass_size = 1.0;
     grass_mesh_instance = nullptr;
@@ -276,6 +277,7 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
     if (lod == 0) {
         biome_maps[coord] = blender->get_biomes_map();
         color_maps[coord] = blender->get_colors_map();
+        distances_maps[coord] = blender->get_distances_map().duplicate();
     } else if (lod < track_biomes_upto_lod) {
         auto newS = subdivisions(resolution(0));
         auto newR = chunk_width / (newS + 1);
@@ -287,9 +289,11 @@ void GDChunker::update_chunk(Vector2i coord, Vector2i new_coord, float res, Vect
         yss = blender->height_map(newX, newZ, newW, newW, newR, true);
         biome_maps[coord] = blender->get_biomes_map();
         color_maps[coord] = blender->get_colors_map();
+        distances_maps[coord] = blender->get_distances_map().duplicate();
     } else {
         biome_maps[coord] = PackedInt32Array();
         color_maps[coord] = PackedColorArray();
+        distances_maps[coord] = TypedArray<PackedFloat32Array>();
     }
 
     auto w = (int_fastdiv)UtilityFunctions::floori(W);
@@ -435,6 +439,7 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
             swap_keys(height_maps, coord0, coord1);
             swap_keys(biome_maps, coord0, coord1);
             swap_keys(color_maps, coord0, coord1);
+            swap_keys(distances_maps, coord0, coord1);
             swap_keys(water_chunk_rids, coord0, coord1);
             swap_keys(water_mesh_rids, coord0, coord1);
             swap_keys(water_mats, coord0, coord1);
@@ -453,6 +458,7 @@ Dictionary GDChunker::update_chunks_in_queue(int64_t start, int64_t limit)
             move_key(height_maps, coord0, coord1);
             move_key(biome_maps, coord0, coord1);
             move_key(color_maps, coord0, coord1);
+            move_key(distances_maps, coord0, coord1);
             move_key(water_chunk_rids, coord0, coord1);
             move_key(water_mesh_rids, coord0, coord1);
             move_key(water_mats, coord0, coord1);
@@ -867,7 +873,7 @@ int32_t GDChunker::get_biome_at_position(double x, double z)
     auto c0 = UtilityFunctions::clampf(UtilityFunctions::roundf((x - base_x) / scale), 0, W - 1);
     auto r0 = UtilityFunctions::clampf(UtilityFunctions::roundf((z - base_z) / scale), 0, W - 1);
 
-    if (c0 + r0 * W > biome_map.size()) {
+    if (c0 + r0 * W >= biome_map.size()) {
         return 1;
     }
     return biome_map[c0 + r0 * W];
@@ -903,6 +909,40 @@ Color GDChunker::get_color_at_position(double x, double z)
         return Color(0, 0, 0);
     }
     return color_map[c0 + r0 * W];
+}
+
+PackedFloat32Array GDChunker::get_distances_at_position(double x, double z)
+{
+    auto coord = convert_position_to_coord(x, z);
+    auto lod = (int32_t)chunk_lods[coord];
+    if (lod >= track_biomes_upto_lod) {
+        auto lod_width = (int64_t)lod_levels[track_biomes_upto_lod - 1];
+        if (abs(coord.x - player_coord.x) >= lod_width) {
+            coord.x += UtilityFunctions::signi(player_coord.x - coord.x);
+        }
+        if (abs(coord.y - player_coord.y) >= lod_width) {
+            coord.y += UtilityFunctions::signi(player_coord.y - coord.y);
+        }
+    }
+    auto distances_map = (TypedArray<PackedFloat32Array>)distances_maps[coord];
+    auto pos = (Vector2)chunk_positions[coord];
+
+    auto subdivide = subdivisions(resolution(0));
+    auto scale = chunk_width / (subdivide + 1);
+    auto W = subdivide + 2;
+
+    auto base_x = pos.x - chunk_width * 0.5;
+    auto base_z = pos.y - chunk_width * 0.5;
+
+    auto c0 = UtilityFunctions::clampf(UtilityFunctions::roundf((x - base_x) / scale), 0, W - 1);
+    auto r0 = UtilityFunctions::clampf(UtilityFunctions::roundf((z - base_z) / scale), 0, W - 1);
+
+    if (c0 + r0 * W >= distances_map.size()) {
+        auto result = PackedFloat32Array();
+        result.resize(blender->colors.size());
+        return result;
+    }
+    return distances_map[c0 + r0 * W];
 }
 
 void GDChunker::update_environment(double x, double y)
@@ -1084,4 +1124,5 @@ void GDChunker::_bind_methods()
     ClassDB::bind_method(D_METHOD("group_spawn_points", "coord", "spacing"), &GDChunker::group_spawn_points);
     ClassDB::bind_method(D_METHOD("get_biome_at_position", "x", "z"), &GDChunker::get_biome_at_position);
     ClassDB::bind_method(D_METHOD("get_color_at_position", "x", "z"), &GDChunker::get_color_at_position);
+    ClassDB::bind_method(D_METHOD("get_distances_at_position", "x", "z"), &GDChunker::get_distances_at_position);
 }

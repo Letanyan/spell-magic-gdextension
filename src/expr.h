@@ -49,6 +49,8 @@ public:
 
     void copy_from(GDExpr* expr);
 
+    String infix_description();
+
     String token_description();
 
     void print_profiling();

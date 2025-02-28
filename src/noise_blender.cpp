@@ -45,28 +45,6 @@ void MyNoise::noise2d_inset(float* data, float x, float y, float w, float h, flo
     }
 }
 
-void GDNoiseBlender::_bind_methods()
-{
-    ClassDB::bind_method(D_METHOD("set_biome_noise", "encoded", "seed", "axis"), &GDNoiseBlender::set_biome_noise);
-    ClassDB::bind_method(D_METHOD("set_elevation_mix_exp", "value"), &GDNoiseBlender::set_elevation_mix_exp);
-    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "grass_height", "location", "color"), &GDNoiseBlender::add_biome);
-    // ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
-    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "scale", "size"), &GDNoiseBlender::compute_biome_stats);
-    ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s", "calculate_colors"), &GDNoiseBlender::compute_biome_map_stats, DEFVAL(false));
-    ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
-    ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
-    ClassDB::bind_method(D_METHOD("get_biomes_map"), &GDNoiseBlender::get_biomes_map);
-    ClassDB::bind_method(D_METHOD("get_color"), &GDNoiseBlender::get_color);
-    ClassDB::bind_method(D_METHOD("get_distances"), &GDNoiseBlender::get_distances);
-
-    ClassDB::bind_method(D_METHOD("texture", "noise", "x", "y", "w", "h"), &GDNoiseBlender::texture);
-    ClassDB::bind_method(D_METHOD("biome_texture", "x", "y", "w", "h", "scale", "axis"), &GDNoiseBlender::biome_texture);
-    ClassDB::bind_method(D_METHOD("height_texture", "data", "w", "h"), &GDNoiseBlender::height_texture);
-    ClassDB::bind_method(D_METHOD("grass_height", "biome", "x", "y"), &GDNoiseBlender::grass_height);
-    ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale", "calculate_colors"), &GDNoiseBlender::height_map, DEFVAL(false));
-    ClassDB::bind_method(D_METHOD("get_locations"), &GDNoiseBlender::get_locations);
-}
-
 GDNoiseBlender::GDNoiseBlender()
 {
     biome = 0;
@@ -234,7 +212,7 @@ float axial_dependant_distance(Vector2 a, Vector2 b)
     return abs(b.x - a.x) * axial_weight + abs(b.y - a.y);
 }
 
-Vector3 oklab_mix(Vector3 colA, Vector3 colB, float h)
+Vector3 GDNoiseBlender::oklab_mix(Vector3 colA, Vector3 colB, float h)
 {
     // https://bottosson.github.io/posts/oklab
     const Basis kCONEtoLMS = Basis(
@@ -464,4 +442,28 @@ double GDNoiseBlender::grass_height(int biome, double x, double y)
     } else {
         return e * 0.25;
     }
+}
+
+void GDNoiseBlender::_bind_methods()
+{
+    ClassDB::bind_method(D_METHOD("set_biome_noise", "encoded", "seed", "axis"), &GDNoiseBlender::set_biome_noise);
+    ClassDB::bind_method(D_METHOD("set_elevation_mix_exp", "value"), &GDNoiseBlender::set_elevation_mix_exp);
+    ClassDB::bind_method(D_METHOD("add_biome", "terrain", "seed", "curve", "grass_height", "location", "color"), &GDNoiseBlender::add_biome);
+    // ClassDB::bind_method(D_METHOD("height", "x", "y"), &GDNoiseBlender::height);
+    ClassDB::bind_method(D_METHOD("compute_biome_stats", "x", "y", "scale", "size"), &GDNoiseBlender::compute_biome_stats);
+    ClassDB::bind_method(D_METHOD("compute_biome_map_stats", "x", "y", "w", "h", "s", "calculate_colors"), &GDNoiseBlender::compute_biome_map_stats, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("get_total_distance"), &GDNoiseBlender::get_total_distance);
+    ClassDB::bind_method(D_METHOD("get_biome"), &GDNoiseBlender::get_biome);
+    ClassDB::bind_method(D_METHOD("get_biomes_map"), &GDNoiseBlender::get_biomes_map);
+    ClassDB::bind_method(D_METHOD("get_color"), &GDNoiseBlender::get_color);
+    ClassDB::bind_method(D_METHOD("get_distances"), &GDNoiseBlender::get_distances);
+
+    ClassDB::bind_method(D_METHOD("texture", "noise", "x", "y", "w", "h"), &GDNoiseBlender::texture);
+    ClassDB::bind_method(D_METHOD("biome_texture", "x", "y", "w", "h", "scale", "axis"), &GDNoiseBlender::biome_texture);
+    ClassDB::bind_method(D_METHOD("height_texture", "data", "w", "h"), &GDNoiseBlender::height_texture);
+    ClassDB::bind_method(D_METHOD("grass_height", "biome", "x", "y"), &GDNoiseBlender::grass_height);
+    ClassDB::bind_method(D_METHOD("height_map", "x", "y", "w", "h", "scale", "calculate_colors"), &GDNoiseBlender::height_map, DEFVAL(false));
+    ClassDB::bind_method(D_METHOD("get_locations"), &GDNoiseBlender::get_locations);
+
+    ClassDB::bind_static_method("GDNoiseBlender", D_METHOD("oklab_mix", "start", "end", "amount"), &GDNoiseBlender::oklab_mix);
 }

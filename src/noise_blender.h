@@ -95,6 +95,8 @@ public:
     PackedVector2Array get_locations();
 
     double grass_height(int biome, double x, double y);
+
+    static Vector3 oklab_mix(Vector3 colA, Vector3 colB, float h);
 };
 
 }

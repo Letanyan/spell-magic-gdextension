@@ -564,8 +564,6 @@ GDTokenScalarVarKind godot::__var_scalar_kind_from_string___(String str)
         return tkv_n;
     if (siseq(str, "D"))
         return tkv_D;
-    if (siseq(str, "spinrate"))
-        return tkv_spinrate;
     if (siseq(str, "t"))
         return tkv_t;
     if (siseq(str, "l"))

@@ -401,7 +401,6 @@ void Vars::_bind_methods()
     ClassDB::bind_integer_constant("Vars", "tkv", "rn9", tkv_rn9);
     ClassDB::bind_integer_constant("Vars", "tkv", "n", tkv_n);
     ClassDB::bind_integer_constant("Vars", "tkv", "D", tkv_D);
-    ClassDB::bind_integer_constant("Vars", "tkv", "spinrate", tkv_spinrate);
     ClassDB::bind_integer_constant("Vars", "tkv", "t", tkv_t);
     ClassDB::bind_integer_constant("Vars", "tkv", "l", tkv_l);
     ClassDB::bind_integer_constant("Vars", "tkv", "fl", tkv_fl);

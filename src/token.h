@@ -133,6 +133,7 @@ enum GDTokenFuncKind : int16_t {
     tkfn_asin,
     tkfn_acos,
     tkfn_atan,
+    tkfn_snap,
 
     tkfnSIZE
 };

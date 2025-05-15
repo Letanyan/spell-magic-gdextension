@@ -726,6 +726,9 @@ Variant GDExpr::compute(const Vars* map, const Dictionary& user_funcs, bool debu
                 } else {
                     value = Vector3(0, 1, 0).slide(v.normalized()).z;
                 }
+            } else if (e.sub_kind == tkfn_snap) {
+                POP_VAR(b, "snap requires 2 parameters")
+                value = UtilityFunctions::snappedf(b, a);
             }
             if (debug)
                 UtilityFunctions::print("FUNC: ", e.raw, " = ", value);

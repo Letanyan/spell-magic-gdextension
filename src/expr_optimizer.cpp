@@ -548,6 +548,8 @@ String godot::constant_folding(const std::vector<GDToken>& expression, Dictionar
                         temp = pow(b, a);
                     } else if (e.raw == "atan2") {
                         temp = atan2(a, b);
+                    } else if (e.raw == "snap") {
+                        temp = UtilityFunctions::snappedf(b, a);
                     }
                     auto value = GDToken(tkNUMBER, UtilityFunctions::str(temp));
                     PUSH_VAR(value)

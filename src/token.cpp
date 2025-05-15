@@ -89,7 +89,7 @@ int godot::number_of_func_arguments(godot::String name)
     if (name == "max" || name == "min" || name == "lt" || name == "gt" || name == "lte" || name == "gte" || name == "eq" || name == "neq") {
         return 2;
     }
-    if (name == "cross" || name == "dot" || name == "proj") {
+    if (name == "cross" || name == "dot" || name == "proj" || name == "snap") {
         return 2;
     }
     if (name == "if" || name == "clamp" || name == "lerp" || name == "unit_x" || name == "unit_y" || name == "unit_z") {
@@ -487,6 +487,8 @@ GDTokenFuncKind godot::__func_kind_from_string___(String str)
         return tkfn_acos;
     if (siseq(str, "atan"))
         return tkfn_atan;
+    if (siseq(str, "snap"))
+        return tkfn_snap;
     return tkfnNONE;
 }
 

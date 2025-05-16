@@ -48,6 +48,9 @@ public:
     void merge(const Vars* other, bool overwrite);
 
     void print_values();
+
+    Dictionary export_dict();
+    void import_dict(Dictionary dict);
 };
 
 }

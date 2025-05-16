@@ -313,6 +313,47 @@ void Vars::print_values()
     UtilityFunctions::print(other);
 }
 
+Dictionary Vars::export_dict()
+{
+    auto result = Dictionary();
+
+    for (int i = 0; i < other.keys().size(); i++) {
+        result[other.keys()[i]] = other.values()[i];
+    }
+    auto scalar_array = Array();
+    for (int i = 0; i < scalars.size(); i++) {
+        scalar_array.append(scalars[i]);
+    }
+    auto vector_array = Array();
+    for (int i = 0; i < vectors.size(); i++) {
+        vector_array.append(vectors[i]);
+    }
+    result[String("~scalars")] = scalar_array;
+    result[String("~vectors")] = vector_array;
+
+    return result;
+}
+
+void Vars::import_dict(Dictionary dict)
+{
+    for (int i = 0; i < dict.keys().size(); i++) {
+        auto key = dict.keys()[i];
+        if (key == String("~scalars")) {
+            auto arr = (Array)dict.values()[i];
+            for (int j = 0; j < arr.size(); j++) {
+                scalars[j] = arr[j];
+            }
+        } else if (key == String("~vectors")) {
+            auto arr = (Array)dict.values()[i];
+            for (int j = 0; j < arr.size(); j++) {
+                vectors[j] = arr[j];
+            }
+        } else {
+            other[key] = dict.values()[i];
+        }
+    }
+}
+
 void Vars::_bind_methods()
 {
     ClassDB::bind_method(D_METHOD("print_values"), &Vars::print_values);
@@ -335,6 +376,9 @@ void Vars::_bind_methods()
 
     ClassDB::bind_method(D_METHOD("copy_from", "other"), &Vars::copy_from);
     ClassDB::bind_method(D_METHOD("merge", "other", "overwrite"), &Vars::merge);
+
+    ClassDB::bind_method(D_METHOD("export_dict"), &Vars::export_dict);
+    ClassDB::bind_method(D_METHOD("import_dict", "dict"), &Vars::import_dict);
 
     ClassDB::bind_integer_constant("Vars", "tkvv", "Bxyz", tkvv_Bxyz);
     ClassDB::bind_integer_constant("Vars", "tkvv", "uvw", tkvv_uvw);

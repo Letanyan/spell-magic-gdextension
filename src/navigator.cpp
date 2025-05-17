@@ -34,7 +34,7 @@ void GDNavigator::_bind_methods()
     ClassDB::bind_method(D_METHOD("get_intersections_from_shape", "p", "shape", "transform", "mask", "exclude"), &GDNavigator::get_intersections_from_shape);
     ClassDB::bind_method(D_METHOD("rotation_vector", "from", "to"), &GDNavigator::rotation_vector);
     ClassDB::bind_method(D_METHOD("get_ray_collision", "p", "from", "direction", "mask"), &GDNavigator::get_ray_collision);
-    ClassDB::bind_method(D_METHOD("get_ray_intersection", "p", "from", "target"), &GDNavigator::get_ray_intersection);
+    ClassDB::bind_method(D_METHOD("get_ray_intersection", "p", "from", "target", "collide_with_areas"), &GDNavigator::get_ray_intersection, DEFVAL(false));
     ClassDB::bind_method(D_METHOD("get_shape_intersection", "p", "from", "target", "shape", "exclude_ground"), &GDNavigator::get_shape_intersection);
     ClassDB::bind_method(D_METHOD("get_shape_distance_away", "p", "from", "target", "shape", "exclude_ground"), &GDNavigator::get_shape_distance_away);
     ClassDB::bind_method(D_METHOD("get_shape_collides", "p", "from", "target", "shape", "exclude_ground"), &GDNavigator::get_shape_collides);
@@ -212,7 +212,7 @@ Vector3 GDNavigator::get_ray_collision(CollisionObject3D* p, Vector3 from, Vecto
     return result.get("position", Vector3());
 }
 
-CollisionShape3D* GDNavigator::get_ray_intersection(CollisionObject3D* p, Vector3 from, Vector3 target)
+CollisionShape3D* GDNavigator::get_ray_intersection(CollisionObject3D* p, Vector3 from, Vector3 target, bool collide_with_areas)
 {
     auto obj = (CollisionObject3D*)(Object*)p;
     auto space_state = obj->get_world_3d()->get_direct_space_state();
@@ -220,6 +220,7 @@ CollisionShape3D* GDNavigator::get_ray_intersection(CollisionObject3D* p, Vector
     query->set_from(from);
     query->set_to(target);
     query->set_collision_mask(~1);
+    query->set_collide_with_areas(collide_with_areas);
     auto exclude = TypedArray<RID>();
     exclude.append(obj->get_rid());
     query->set_exclude(exclude);

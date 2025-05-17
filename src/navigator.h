@@ -42,7 +42,7 @@ public:
     TypedArray<Dictionary> get_intersections_from_shape(CollisionObject3D* p, Shape3D* shape, Transform3D transform, int mask, TypedArray<RID> exclude);
     Quaternion rotation_vector(Vector3 from, Vector3 to);
     Vector3 get_ray_collision(CollisionObject3D* p, Vector3 from, Vector3 direction, int mask);
-    CollisionShape3D* get_ray_intersection(CollisionObject3D* p, Vector3 from, Vector3 target);
+    CollisionShape3D* get_ray_intersection(CollisionObject3D* p, Vector3 from, Vector3 target, bool collide_with_areas = false);
     bool get_shape_intersection(CollisionObject3D* p, Vector3 from, Vector3 target, Shape3D* shape, bool exclude_ground);
     PackedFloat32Array get_shape_distance_away(CollisionObject3D* p, Vector3 from, Vector3 target, Shape3D* shape, bool exclude_ground);
     bool get_shape_collides(CollisionObject3D* p, Vector3 from, Vector3 target, Shape3D* shape, bool exclude_ground);
